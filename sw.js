@@ -1,13 +1,13 @@
 // Offline support for Planner 2027.
 // When you upload a new index.html, bump VERSION so phones pick up the change.
-const VERSION = "planner-2027-v1";
+const VERSION = "planner-2027-v2";
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./icons/apple-touch-icon.png"
+  "./icon-192.png",
+  "./icon-512.png",
+  "./apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
