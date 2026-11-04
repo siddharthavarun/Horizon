@@ -1,6 +1,7 @@
 // Offline support for Planner 2027.
-// When you upload a new index.html, bump VERSION so phones pick up the change.
-const VERSION = "planner-2027-v2";
+// Pages load fresh from the network when online and fall back to the saved copy offline.
+// When you upload new files, bump VERSION so phones refresh their saved copy.
+const VERSION = "planner-2027-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -11,7 +12,11 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(VERSION)
+      .then((c) => Promise.all(SHELL.map((u) => fetch(new Request(u, { cache: "reload" })).then((r) => r.ok && c.put(u, r)).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -22,7 +27,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Serve from cache straight away, refresh the cache in the background.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -31,20 +35,21 @@ self.addEventListener("fetch", (event) => {
   const isFont = url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com";
   if (!sameOrigin && !isFont) return;
 
+  // Network first: always try for the newest file, use the saved copy only when offline.
   event.respondWith(
-    caches.open(VERSION).then(async (cache) => {
-      const cached = await cache.match(req, { ignoreSearch: sameOrigin });
-      const network = fetch(req)
-        .then((res) => {
-          if (res && (res.ok || res.type === "opaque")) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => null);
-      if (cached) return cached;
-      const res = await network;
-      if (res) return res;
-      if (req.mode === "navigate") return cache.match("./index.html");
-      return Response.error();
-    })
+    fetch(sameOrigin ? new Request(req, { cache: "no-cache" }) : req)
+      .then((res) => {
+        if (res && (res.ok || res.type === "opaque")) {
+          const copy = res.clone();
+          caches.open(VERSION).then((c) => c.put(req, copy));
+        }
+        return res;
+      })
+      .catch(async () => {
+        const cached = await caches.match(req, { ignoreSearch: sameOrigin });
+        if (cached) return cached;
+        if (req.mode === "navigate") return caches.match("./index.html");
+        return Response.error();
+      })
   );
 });
