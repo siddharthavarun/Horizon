@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Planner 27">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -345,6 +345,24 @@ table.vy{min-width:0}
 .term:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
 .preset select{width:auto;max-width:100%;font-size:13px;padding:6px 10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.stat:hover{transform:none}}
+.wrap{padding-top:calc(env(safe-area-inset-top,0px) + 16px)!important;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 64px)!important}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:20;background:rgba(23,18,15,.82);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);pointer-events:none}
+.rail{left:max(18px, calc(env(safe-area-inset-left,0px) + 8px))}
+/* variable-cost donut */
+.donut{display:grid;grid-template-columns:minmax(150px,200px) minmax(0,1fr);gap:18px 24px;align-items:center}
+@media (max-width:520px){.donut{grid-template-columns:minmax(0,1fr)}.donut svg{max-width:220px;margin:0 auto}}
+.donut svg{display:block;width:100%;height:auto}
+.donut svg path{transition:opacity .2s, transform .2s;transform-origin:100px 100px;cursor:pointer}
+.donut[data-on] svg path{opacity:.35}
+.donut[data-on] svg path.on{opacity:1;transform:scale(1.04)}
+.dlg{display:flex;flex-direction:column;gap:8px;min-width:0}
+.dlg button{appearance:none;display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;width:100%;padding:8px 10px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--fg);font:500 14px var(--body);text-align:left;cursor:pointer}
+.dlg button:hover,.dlg button.on{background:rgba(255,255,255,.07);border-color:var(--hair)}
+.dlg button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+.dlg i{width:12px;height:12px;border-radius:4px;background:var(--c)}
+.dlg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlg .a{font-variant-numeric:tabular-nums;font-weight:600}
+.dlg .p{font-variant-numeric:tabular-nums;color:var(--faint);font-size:12.5px;min-width:3em;text-align:right}
 .file-btn{position:relative;overflow:hidden}
 .file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
 .data-actions{display:flex;flex-wrap:wrap;gap:10px}
@@ -752,6 +770,34 @@ function summaryHTML(which,C){
 }
 
 function card(title,sub,body,id){return '<div class="card glass"'+(id?' id="'+id+'"':'')+'><div class="card-h"><h2>'+title+'</h2>'+(sub?'<p>'+sub+'</p>':'')+'</div>'+body+'</div>';}
+var PIE=["#a78bfa","#60a5fa","#34d399","#fbbf24","#f472b6","#fb923c","#2dd4bf","#f87171","#e879f9","#94a3b8"];
+function donutHTML(obj,total,emptyMsg){
+  var e=Object.keys(obj).map(function(k){return [k,obj[k]];}).filter(function(x){return x[1]>0.5;}).sort(function(a,b){return b[1]-a[1];});
+  if(!e.length||total<=0) return '<div class="empty">'+(emptyMsg||"Nothing added yet")+'</div>';
+  var cx=100,cy=100,R=92,r=58,a0=-Math.PI/2,paths="";
+  function pt(rad,a){return (cx+rad*Math.cos(a)).toFixed(2)+" "+(cy+rad*Math.sin(a)).toFixed(2);}
+  e.forEach(function(x,i){
+    var frac=x[1]/total, col=PIE[i%PIE.length], d;
+    if(frac>=0.9999){d="M"+pt(R,0)+" A"+R+" "+R+" 0 1 1 "+pt(R,Math.PI)+" A"+R+" "+R+" 0 1 1 "+pt(R,0)+" M"+pt(r,0)+" A"+r+" "+r+" 0 1 0 "+pt(r,Math.PI)+" A"+r+" "+r+" 0 1 0 "+pt(r,0)+" Z";}
+    else{var gap=e.length>1?0.012:0, s=a0+gap, en=a0+frac*2*Math.PI-gap, big=(en-s)>Math.PI?1:0;
+      d="M"+pt(R,s)+" A"+R+" "+R+" 0 "+big+" 1 "+pt(R,en)+" L"+pt(r,en)+" A"+r+" "+r+" 0 "+big+" 0 "+pt(r,s)+" Z";}
+    paths+='<path d="'+d+'" fill="'+col+'" fill-rule="evenodd" data-slice="'+i+'"><title>'+esc(x[0])+': '+money(x[1])+'</title></path>';
+    a0+=frac*2*Math.PI;
+  });
+  var top=e[0];
+  return '<div class="donut" data-total="'+total+'"><svg viewBox="0 0 200 200" role="img" aria-label="Variable costs split by category">'+paths+
+    '<text class="dc-v" x="100" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="#fff">'+money(total)+'</text>'+
+    '<text class="dc-k" x="100" y="120" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.55)">per month</text></svg>'+
+    '<div class="dlg">'+e.map(function(x,i){return '<button type="button" data-slice="'+i+'" data-name="'+esc(x[0])+'" data-amt="'+x[1]+'" style="--c:'+PIE[i%PIE.length]+'"><i></i><span>'+esc(x[0])+'</span><span class="a">'+money(x[1])+'</span><span class="p">'+Math.round(x[1]/total*100)+'%</span></button>';}).join("")+'</div></div>'+
+    '<p class="note" style="margin-top:12px">'+esc(top[0])+' is your biggest variable cost at '+Math.round(top[1]/total*100)+'%, about '+money(top[1]*12)+' a year. Shared costs count at your share. Tap a slice or row to focus it.</p>';
+}
+function focusSlice(wrap,i){
+  var cur=wrap.getAttribute("data-on"), on=(cur===String(i))?null:String(i);
+  wrap.querySelectorAll("[data-slice]").forEach(function(el){el.classList.toggle("on",on!==null&&el.dataset.slice===on);});
+  var v=wrap.querySelector(".dc-v"), k=wrap.querySelector(".dc-k"), tot=+wrap.dataset.total;
+  if(on===null){wrap.removeAttribute("data-on"); v.textContent=money(tot); k.textContent="per month";}
+  else{var b=wrap.querySelector('.dlg [data-slice="'+on+'"]'); wrap.setAttribute("data-on",on); v.textContent=money(+b.dataset.amt); k.textContent=b.dataset.name.length>16?b.dataset.name.slice(0,15)+"…":b.dataset.name;}
+}
 function barsHTML(obj,color,total){
   var e=Object.keys(obj).map(function(k){return [k,obj[k]];}).filter(function(x){return x[1]>0.5;}).sort(function(a,b){return b[1]-a[1];});
   if(!e.length) return '<div class="empty">Nothing added yet</div>';
@@ -809,7 +855,7 @@ function overviewHTML(C){
     '<p class="note" style="margin-top:12px">Assumes '+n(state.settings.returnPct)+'% yearly return on investments, steady income and costs, and bills and trips paid in the month they’re due.</p>');
   var types=card("Investments by type",money(C.inv),barsHTML(C.byType,"var(--c-inv)",C.inv));
   var fixed=card("Fixed costs by category",money(C.fixedM)+" / mo",barsHTML(C.fixedByCat,"var(--c-fixed)",C.fixedM));
-  var vari=card("Variable costs by category",money(C.varM)+" / mo",barsHTML(C.varByCat,"var(--c-var)",C.varM));
+  var vari=card("Variable costs by category",money(C.varM)+" / mo",donutHTML(C.varByCat,C.varM,"Add variable costs in the Variable costs tab"));
   return '<div class="bento">'+chart+up+'</div><div class="grid3">'+flow+acct+goals+'</div><div class="grid2">'+ledger+types+'</div><div class="grid2">'+fixed+vari+'</div>';
 }
 function renderPanel(){
@@ -826,6 +872,7 @@ function renderPanel(){
     card("Variable costs",money(C.varM)+" / mo forecast",
       '<p class="note" style="margin-bottom:12px">Budgets and what you actually spend each month now have their own tab.</p><button class="btn" type="button" data-tab="variable">'+ti("variable")+'Open Variable costs</button>');
   else if(tab==="variable") h='<div class="summary" data-sum="variable"></div>'+
+    card("Where it goes","Your share by category, monthly average for 2027",'<div data-donut="var"></div>')+
     card("Monthly spending",state.variable.length?"Enter what each line actually cost in the month":"",varMonthHTML())+
     card("2027 month by month","Actual spending where entered, budget for months still to come",'<div class="tbl-wrap" id="vyear"></div>')+
     card("Budget lines","Monthly budget per spending type. The year budget is 12 months of it",
@@ -861,6 +908,9 @@ function refreshDerived(C){
   C=C||compute();
   renderStats(C);
   document.querySelectorAll("[data-sum]").forEach(function(el){el.innerHTML=summaryHTML(el.dataset.sum,C);});
+  document.querySelectorAll("[data-donut]").forEach(function(el){
+    var sig=JSON.stringify(C.varByCat); if(el.dataset.sig===sig) return; el.dataset.sig=sig;
+    el.innerHTML=donutHTML(C.varByCat,C.varM,"Add budget lines below to see the split");});
   document.querySelectorAll("[data-calc]").forEach(function(el){
     var r=state[el.dataset.calc].find(function(x){return x.id===el.dataset.rid;});
     if(r) el.innerHTML=calcText(el.dataset.calc,r,C);
@@ -1181,6 +1231,8 @@ $("panel").addEventListener("input",onField);
 $("panel").addEventListener("change",function(e){if(e.target.tagName==="SELECT"||e.target.type==="checkbox"||e.target.type==="date") onField(e);});
 
 $("panel").addEventListener("click",function(e){
+  var sl=e.target.closest(".donut [data-slice]");
+  if(sl){focusSlice(sl.closest(".donut"),sl.dataset.slice); return;}
   var vmb=e.target.closest("[data-vm]");
   if(vmb){vMonth=+vmb.dataset.vm; try{localStorage.setItem("fp2027-vmonth",String(vMonth));}catch(err){}
     if(vmb.tagName==="TR"){renderPanel(); var mc=document.querySelector(".mchips"); if(mc) mc.closest(".card").scrollIntoView({block:"start",behavior:"smooth"}); var fi=document.querySelector("[data-act]"); if(fi) fi.focus({preventScroll:true});}
