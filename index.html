@@ -270,7 +270,8 @@ input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
 .dbt th:first-child,.dbt td:first-child{padding-left:16px}
 .dbt th:last-child,.dbt td:last-child{padding-right:10px}
 .dbt th.n,.dbt td.n{min-width:92px}
-@media (max-width:560px){.dbt th,.dbt td{padding-left:14px;padding-right:14px}.dbt th.n,.dbt td.n{min-width:80px}}
+.dbt .hs{display:none}
+@media (max-width:560px){.dbt{font-size:12.5px}.dbt th,.dbt td{padding:9px 7px}.dbt th{font-size:10px;letter-spacing:.03em}.dbt th:first-child,.dbt td:first-child{padding-left:10px}.dbt th:last-child,.dbt td:last-child{padding-right:4px}.dbt th.n,.dbt td.n{min-width:0}.dbt td.first,.dbt th.first{max-width:120px}.dbt td.act{padding:2px 2px}.dbt td.act .del{width:26px;height:26px}.dbt .hl{display:none}.dbt .hs{display:inline}}
 .dbt td.act .del{position:static;display:grid}
 .dbt .yes{color:var(--pos)} .dbt .no{color:var(--faint)}
 .editor{margin-top:12px;border-color:rgba(52,211,153,.45)}
@@ -288,6 +289,44 @@ table.fc{width:100%;min-width:640px;border-collapse:collapse;font-size:13.5px;fo
 .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:1px}
 .pill.bad{background:rgba(251,113,133,.18);color:#fecdd3}
 .pill.warn{background:rgba(251,191,36,.16);color:#fde68a}
+.pill.est{background:rgba(255,255,255,.08);color:var(--muted)}
+.pill.ok{background:rgba(52,211,153,.16);color:#bbf7d0}
+/* variable costs tab */
+.mchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px 2px 4px;margin:0 -2px 14px}
+.mchips::-webkit-scrollbar{display:none}
+.mchip{appearance:none;flex:none;position:relative;border:1px solid var(--hair);background:var(--glass-2);color:var(--muted);font:600 13px var(--body);padding:7px 13px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s,border-color .2s}
+.mchip:hover{color:var(--fg);border-color:var(--hair-strong)}
+.mchip[aria-pressed="true"]{background:rgba(167,139,250,.24);border-color:rgba(167,139,250,.65);color:#fff}
+.mchip.has::after{content:"";position:absolute;top:4px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--pos)}
+.mchip:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+.vlines{display:flex;flex-direction:column;border:1px solid var(--hair);border-radius:var(--r-md);background:var(--glass);overflow:hidden}
+.vline{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:6px 12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--hair)}
+.vline:last-child{border-bottom:0}
+.vline .nm{min-width:0;appearance:none;border:0;background:none;padding:2px 0;margin:0;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.vline .nm:focus-visible{outline:2px solid var(--pos);outline-offset:2px;border-radius:6px}
+.vline .nm span{display:inline-flex;align-items:center;gap:5px}
+.vline .nm svg{width:12px;height:12px;opacity:.7}
+.vline .nm .unnamed{color:var(--warn)}
+.vline .nm:hover b{text-decoration:underline;text-underline-offset:3px}
+.vline .nm b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vline .nm span{font-size:12.5px;color:var(--faint)}
+.vin{position:relative}
+.vin input{text-align:right;padding-right:40px}
+.vin input::-webkit-outer-spin-button,.vin input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.vin input{-moz-appearance:textfield}
+.vin i{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-style:normal;font-size:12px;color:var(--faint);pointer-events:none}
+.vline .vd{grid-column:1/-1;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.vline .vd .bar-t{flex:1;min-width:40px}
+.vline .vd span{white-space:nowrap}
+.vtot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 14px;margin-top:14px;font-size:14px}
+.vtot b{font-family:var(--display);font-size:18px}
+.over{color:var(--neg)} .under{color:var(--pos)}
+table.vy{min-width:0}
+.vy tbody tr[data-vm]{cursor:pointer}
+.vy tbody tr[data-vm]:hover td{background:rgba(255,255,255,.04)}
+.vy tr.cur td{background:rgba(167,139,250,.1)}
+@media (max-width:420px){.vline{grid-template-columns:minmax(0,1fr) 118px;padding:11px 12px}.vy .pill{display:none}}
+
 /* suggestions */
 .tips{display:flex;flex-direction:column;gap:10px}
 .tipc{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:14px 16px;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--hair)}
@@ -306,12 +345,6 @@ table.fc{width:100%;min-width:640px;border-collapse:collapse;font-size:13.5px;fo
 .term:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
 .preset select{width:auto;max-width:100%;font-size:13px;padding:6px 10px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.stat:hover{transform:none}}
-
-/* standalone base reset */
-html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}
-body{margin:0}
-img{max-width:100%}
-[hidden]{display:none!important}
 .file-btn{position:relative;overflow:hidden}
 .file-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
 .data-actions{display:flex;flex-wrap:wrap;gap:10px}
@@ -344,7 +377,7 @@ img{max-width:100%}
 /* ---------- constants ---------- */
 var TYPES=["ETF","Mutual fund","Stock","Bond","Crypto","Pension","Gold","Other"];
 var FIXED_CATS=["Housing","Utilities","Insurance","Phone & internet","Transport","Subscriptions","Family support","Education","Other"];
-var VAR_CATS=["Groceries","Dining out","Shopping","Entertainment","Travel","Health","Personal care","Gifts","Household","Other"];
+var VAR_CATS=["Groceries","Dining out","Shopping","Entertainment","Travel","Health","Personal care","Gifts","Household","Add on","Other"];
 var CURS=["EUR","INR","USD"];
 var COUNTRIES=["Not set","Germany","India","USA","Ireland","Luxembourg","Netherlands","UK","Global / multi-country","Other"];
 var FREQS=["Monthly","Quarterly","Yearly"];
@@ -371,7 +404,7 @@ var LISTS={
     {k:"type",l:"Type",t:"select",o:TYPES},
     {k:"platform",l:"Platform",t:"text",ph:"e.g. Trade Republic"},
     {k:"country",l:"Country",t:"select",o:COUNTRIES},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"value",l:"Value on 1 Jan 2027",t:"num"},
     {k:"monthly",l:"Monthly plan",t:"num"},
     {k:"active",l:"Plan running",t:"check"}],
@@ -379,12 +412,12 @@ var LISTS={
   banks:{noun:"account",empty:"No bank accounts yet. Add your current and savings accounts.",fields:[
     {k:"name",l:"Account",t:"text",ph:"e.g. N26",wide:true},
     {k:"purpose",l:"Used for",t:"text",ph:"e.g. Salary, emergency fund"},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"balance",l:"Balance on 1 Jan 2027",t:"num"}],
     blank:function(){return {name:"",purpose:"",cur:"EUR",balance:0};}},
   fds:{noun:"fixed deposit",empty:"No fixed deposits. Add one if you lock money away for a fixed term.",fields:[
     {k:"bank",l:"Bank / product",t:"text",ph:"e.g. Raisin 12-month FD",wide:true},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"principal",l:"Amount deposited",t:"num"},
     {k:"rate",l:"Interest % p.a.",t:"num"},
     {k:"start",l:"Start date",t:"date"},
@@ -392,8 +425,8 @@ var LISTS={
     blank:function(){return {bank:"",cur:"EUR",principal:0,rate:0,start:"2027-01-01",maturity:"2028-01-01"};}},
   fixed:{noun:"fixed cost",empty:"No fixed costs yet. Add rent, insurance, subscriptions and other bills.",fields:[
     {k:"name",l:"Cost",t:"text",ph:"e.g. Rent",wide:true},
-    {k:"category",l:"Category",t:"select",o:FIXED_CATS},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"category",l:"Category",t:"combo",o:FIXED_CATS,ph:"Type or pick one"},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"amount",l:"Amount",t:"num"},
     {k:"freq",l:"Paid",t:"select",o:FREQS},
     {k:"dueMonth",l:"Due in (yearly/quarterly)",t:"select",o:MONTHS}],
@@ -402,30 +435,29 @@ var LISTS={
     {k:"name",l:"Trip",t:"text",ph:"e.g. India in March",wide:true},
     {k:"month",l:"Month",t:"select",o:MONTHS},
     {k:"days",l:"Days",t:"num"},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"transport",l:"Flights / travel (total)",t:"num"},
     {k:"stay",l:"Stay per night",t:"num"},
     {k:"daily",l:"Daily spend (food, local, fun)",t:"num"},
     {k:"other",l:"Other (visa, gifts, insurance)",t:"num"}],
     blank:function(){return {name:"",month:"Jun",days:5,cur:"EUR",transport:0,stay:0,daily:0,other:0};}},
   variable:{noun:"variable cost",empty:"No variable costs yet. Add monthly budgets for groceries, eating out and so on.",fields:[
-    {k:"name",l:"Cost",t:"text",ph:"e.g. Weekly groceries",wide:true},
-    {k:"category",l:"Category",t:"select",o:VAR_CATS},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"category",l:"Category",t:"combo",o:VAR_CATS,ph:"Type or pick one",wide:true},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"amount",l:"Monthly budget",t:"num"},
     {k:"shared",l:"Shared cost",t:"check"}],
-    blank:function(){return {name:"",category:"Groceries",cur:"EUR",amount:0,shared:false};}},
+    blank:function(){return {name:"",category:"Groceries",cur:"EUR",amount:0,shared:false,act:[null,null,null,null,null,null,null,null,null,null,null,null]};}},
   emis:{noun:"EMI",empty:"No EMIs. Add loans or instalment plans you are paying off.",fields:[
     {k:"name",l:"Loan / purchase",t:"text",ph:"e.g. Education loan",wide:true},
     {k:"lender",l:"Lender",t:"text",ph:"e.g. SBI"},
-    {k:"cur",l:"Currency",t:"select",o:CURS},
+    {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"outstanding",l:"Left to pay (1 Jan 2027)",t:"num"},
     {k:"rate",l:"Interest % p.a.",t:"num"},
     {k:"payment",l:"Monthly payment",t:"num"}],
     blank:function(){return {name:"",lender:"",cur:"EUR",outstanding:0,rate:0,payment:0};}}
 };
 
-var TABS=[["overview","Overview"],["forecast","Forecast"],["investments","Investments"],["cash","Cash & deposits"],["budget","Income & costs"],["travel","Travel"],["emis","EMIs"],["settings","Settings"]];
+var TABS=[["overview","Overview"],["forecast","Forecast"],["investments","Investments"],["cash","Cash & deposits"],["budget","Income & costs"],["variable","Variable costs"],["travel","Travel"],["emis","EMIs"],["settings","Settings"]];
 var PRESETS={
   "City break in Europe":{days:4,transport:200,stay:90,daily:60,other:30},
   "Beach week in Europe":{days:7,transport:300,stay:100,daily:50,other:50},
@@ -441,6 +473,7 @@ function normalize(s){
   var o=JSON.parse(JSON.stringify(s));
   ["settings","income"].forEach(function(k){o[k]=Object.assign({},b[k],o[k]||{});});
   Object.keys(LISTS).forEach(function(k){o[k]=Array.isArray(o[k])?o[k].map(function(r){return Object.assign(LISTS[k].blank(),r,{id:r.id||uid()});}):[];});
+  o.variable.forEach(function(r){var a=Array.isArray(r.act)?r.act:[]; r.act=MONTHS.map(function(_,i){var v=a[i]; return (v===null||v===undefined||v===""||!isFinite(+v))?null:+v;});});
   o.example=!!o.example; o.updatedAt=+o.updatedAt||0; o.v=1;
   return o;
 }
@@ -491,6 +524,7 @@ function fixedInMonth(f,mi){
   if(f.freq==="Yearly") return mi===due?n(f.amount):0;
   return ((mi-due)%3+3)%3===0?n(f.amount):0;
 }
+function hasAct(f,mi){var a=f.act&&f.act[mi]; return a!==null&&a!==undefined&&a!==""&&isFinite(+a);}
 function tripParts(t){var d=Math.max(0,n(t.days)); return {transport:n(t.transport),stay:n(t.stay)*Math.max(d-1,0),daily:n(t.daily)*d,other:n(t.other)};}
 function tripTotal(t){var p=tripParts(t); return p.transport+p.stay+p.daily+p.other;}
 
@@ -501,8 +535,13 @@ function compute(){
   state.investments.forEach(function(i){var v=eur(i.value,i.cur); inv+=v; if(i.active) invMonthly+=eur(i.monthly,i.cur); byType[i.type]=(byType[i.type]||0)+v;});
   var cash=0; state.banks.forEach(function(b){cash+=eur(b.balance,b.cur);});
   var fd=0; state.fds.forEach(function(f){fd+=eur(fdValueAt(f,START),f.cur);});
-  var fixedM=0, fixedByCat={}; state.fixed.forEach(function(f){var v=eur(f.amount,f.cur)/freqDiv(f.freq); fixedM+=v; fixedByCat[f.category]=(fixedByCat[f.category]||0)+v;});
-  var varM=0, varByCat={}; state.variable.forEach(function(f){var v=eur(f.amount,f.cur)*(f.shared?share:1); varM+=v; varByCat[f.category]=(varByCat[f.category]||0)+v;});
+  var fixedM=0, fixedByCat={}; state.fixed.forEach(function(f){var v=eur(f.amount,f.cur)/freqDiv(f.freq); fixedM+=v; var fc=(f.category||"").trim()||"Other"; fixedByCat[fc]=(fixedByCat[fc]||0)+v;});
+  var varByCat={}, varBudM=[0,0,0,0,0,0,0,0,0,0,0,0], varFcM=[0,0,0,0,0,0,0,0,0,0,0,0], varActM=[0,0,0,0,0,0,0,0,0,0,0,0], varHas=MONTHS.map(function(){return false;}), varActSum=0, varActBud=0, varLines=[];
+  state.variable.forEach(function(f){var k=f.shared?share:1, b=eur(f.amount,f.cur)*k, yr=0, spent=0, bud=0;
+    for(var mi=0;mi<12;mi++){varBudM[mi]+=b; var v=b; if(hasAct(f,mi)){v=eur(f.act[mi],f.cur)*k; varActM[mi]+=v; varHas[mi]=true; spent+=v; bud+=b;} varFcM[mi]+=v; yr+=v;}
+    varActSum+=spent; varActBud+=bud; varLines.push({f:f,spent:spent,bud:bud,year:yr});
+    var vc=(f.category||"").trim()||"Other"; varByCat[vc]=(varByCat[vc]||0)+yr/12;});
+  var varFcY=varFcM.reduce(function(a,b){return a+b;},0), varBudY=varBudM.reduce(function(a,b){return a+b;},0), varM=varFcY/12;
   var emiOut=0, emiM=0; state.emis.forEach(function(e){emiOut+=eur(e.outstanding,e.cur); if(n(e.outstanding)>0) emiM+=eur(e.payment,e.cur);});
   var travelTotal=0, travelByMonth=[0,0,0,0,0,0,0,0,0,0,0,0];
   state.trips.forEach(function(t){var v=eur(tripTotal(t),t.cur); travelTotal+=v; var mi=MONTHS.indexOf(t.month); if(mi>=0) travelByMonth[mi]+=v;});
@@ -522,14 +561,15 @@ function compute(){
     state.fds.forEach(function(f){fdT+=eur(fdValueAt(f,at),f.cur);});
     var fixedAct=0; state.fixed.forEach(function(f){fixedAct+=eur(fixedInMonth(f,mi),f.cur);});
     var trav=travelByMonth[mi];
-    var net=income-fixedAct-varM-contrib-paid-trav;
+    var varAct=varFcM[mi];
+    var net=income-fixedAct-varAct-contrib-paid-trav;
     c+=net;
-    rows.push({mi:mi,income:income,fixed:fixedAct,variable:varM,emi:paid,invest:contrib,travel:trav,net:net,bal:c});
+    rows.push({mi:mi,income:income,fixed:fixedAct,variable:varAct,emi:paid,invest:contrib,travel:trav,net:net,bal:c});
     pts.push({inv:invT,fd:fdT,cash:c,emi:emiT,nw:invT+fdT+c-emiT,date:at});
   }
   var savingsRate=income>0?(invMonthly+Math.max(0,surplus))/income*100:0;
   var low={bal:cash,mi:-1}; rows.forEach(function(r){if(r.bal<low.bal) low={bal:r.bal,mi:r.mi};});
-  return {income:income,inv:inv,invMonthly:invMonthly,cash:cash,fd:fd,fixedM:fixedM,varM:varM,emiOut:emiOut,emiM:emiM,outflow:outflow,surplus:surplus,nw:nw,pts:pts,byType:byType,fixedByCat:fixedByCat,varByCat:varByCat,savingsRate:savingsRate,share:share,travelTotal:travelTotal,travelM:travelM,travelByMonth:travelByMonth,rows:rows,low:low};
+  return {income:income,inv:inv,invMonthly:invMonthly,cash:cash,fd:fd,fixedM:fixedM,varM:varM,emiOut:emiOut,emiM:emiM,outflow:outflow,surplus:surplus,nw:nw,pts:pts,byType:byType,fixedByCat:fixedByCat,varByCat:varByCat,savingsRate:savingsRate,share:share,travelTotal:travelTotal,travelM:travelM,travelByMonth:travelByMonth,rows:rows,low:low,varBudM:varBudM,varFcM:varFcM,varActM:varActM,varHas:varHas,varActSum:varActSum,varActBud:varActBud,varFcY:varFcY,varBudY:varBudY,varLines:varLines};
 }
 
 /* ---------- rendering ---------- */
@@ -551,6 +591,7 @@ var TAB_ICON={
   investments:'<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
   cash:'<path d="M3 22h18"/><path d="M6 18v-7M10 18v-7M14 18v-7M18 18v-7"/><path d="M12 2 20 7H4z"/>',
   budget:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  variable:'<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a2 2 0 0 0 2 1.6h8.3a2 2 0 0 0 2-1.5L22 7H6"/>',
   travel:'<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
   emis:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
   settings:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>'
@@ -589,6 +630,8 @@ function fieldHTML(list,row,f){
   if(f.t==="check") return '<div class="f check"><input type="checkbox" '+attrs+(row[f.k]?" checked":"")+'><label for="'+id+'">'+esc(f.l)+'</label></div>';
   var inner;
   if(f.t==="select") inner='<select '+attrs+'>'+f.o.map(function(o){return '<option'+(o===row[f.k]?" selected":"")+'>'+esc(o)+'</option>';}).join("")+'</select>';
+  else if(f.t==="combo"){var opts=f.o.slice(); (state[list]||[]).forEach(function(x){var v=(x[f.k]||"").trim(); if(v&&opts.indexOf(v)<0) opts.push(v);});
+    inner='<input type="text" list="dl-'+id+'" '+attrs+' value="'+esc(row[f.k])+'" placeholder="'+esc(f.ph||"")+'" autocomplete="off" enterkeyhint="next"><datalist id="dl-'+id+'">'+opts.map(function(o){return '<option value="'+esc(o)+'"></option>';}).join("")+'</datalist>';}
   else if(f.t==="num") inner='<input type="number" step="any" inputmode="decimal" '+attrs+' value="'+(n(row[f.k])||"")+'" placeholder="0">';
   else if(f.t==="date") inner='<input type="date" '+attrs+' value="'+esc(row[f.k])+'"'+(list==="fds"&&f.k==="maturity"&&row.start?' min="'+esc(row.start)+'"':'')+'>';
   else inner='<input type="text" '+attrs+' value="'+esc(row[f.k])+'" placeholder="'+esc(f.ph||"")+'" autocomplete="off">';
@@ -613,11 +656,12 @@ function shortCalc(list,r,C){
   if(list==="fds"){var m=parseDate(r.maturity),s0=parseDate(r.start); return (m&&s0&&m>s0)?moneyCur(fdValueAt(r,m),r.cur):'—';}
   if(list==="fixed") return money(eur(n(r.amount)/freqDiv(r.freq),r.cur));
   if(list==="trips") return tripTotal(r)>0?money(eur(tripTotal(r),r.cur)):'—';
-  if(list==="variable"){var full=eur(r.amount,r.cur); return money(r.shared&&C?full*C.share:full);}
+  if(list==="variable"){var full=eur(r.amount,r.cur); return money((r.shared&&C?full*C.share:full)*12);}
   if(list==="emis"){if(n(r.outstanding)<=0) return 'Paid'; var sc=emiSchedule(r); return sc.ok?monthLabel(addMonths(START,sc.months-1)):'Never';}
   return '';
 }
-var DERIVED={investments:"By 31 Dec",banks:"In €",fds:"At maturity",fixed:"Per month (€)",trips:"Total (€)",variable:"Your cost / mo",emis:"Paid off by"};
+var DERIVED_S={fixed:"€ / mo",trips:"Total €",variable:"€ / yr"};
+var DERIVED={investments:"By 31 Dec",banks:"In €",fds:"At maturity",fixed:"Per month (€)",trips:"Total (€)",variable:"Year budget (€)",emis:"Paid off by"};
 function editorHTML(list,r){
   var L=LISTS[list];
   return '<div class="row editor" data-row="'+r.id+'"><button class="del" type="button" data-del="'+list+'" data-rid="'+r.id+'" aria-label="Remove this '+L.noun+'">'+ICONS.x+'</button><div class="fields">'+L.fields.map(function(f){return fieldHTML(list,r,f);}).join("")+'</div>'+(list==="fds"?termsHTML(r):'')+'<div class="calc" data-calc="'+list+'" data-rid="'+r.id+'"></div>'+
@@ -630,7 +674,7 @@ function listHTML(list){
   var body='';
   if(saved.length){
     var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth");});
-    body='<div class="dbt-wrap"><table class="dbt"><thead><tr>'+TF.map(function(f,i){return '<th'+(i===0?' class="first"':(f.t==="num"?' class="n"':''))+'>'+esc(f.l)+'</th>';}).join("")+'<th class="n derived">'+DERIVED[list]+'</th><th></th></tr></thead><tbody>'+
+    body='<div class="dbt-wrap"><table class="dbt"><thead><tr>'+TF.map(function(f,i){return '<th'+(i===0?' class="first"':(f.t==="num"?' class="n"':''))+'>'+(f.s?'<span class="hl">'+esc(f.l)+'</span><span class="hs">'+esc(f.s)+'</span>':esc(f.l))+'</th>';}).join("")+'<th class="n derived">'+(DERIVED_S[list]?'<span class="hl">'+DERIVED[list]+'</span><span class="hs">'+DERIVED_S[list]+'</span>':DERIVED[list])+'</th><th></th></tr></thead><tbody>'+
       saved.map(function(r){
         return '<tr tabindex="0" data-edit="'+r.id+'" aria-label="Edit '+esc(r[L.fields[0].k]||L.noun)+'">'+TF.map(function(f,i){
           if(i===0) return '<td class="first">'+(r[f.k]?esc(r[f.k]):'<span class="faint">Untitled</span>')+'</td>';
@@ -673,7 +717,7 @@ function calcText(list,r,C){
     var parts=[["travel",p.transport],["stay",p.stay],["daily",p.daily],["other",p.other]].filter(function(x){return x[1]>0;}).map(function(x){return moneyCur(x[1],r.cur)+' '+x[0];}).join(' + ');
     return 'Estimated <b>'+moneyCur(tot,r.cur)+'</b>'+(r.cur!=="EUR"?' (≈ '+money(eur(tot,r.cur))+')':'')+' = '+parts+'<br>Put aside <b>'+money(eur(save,r.cur))+'</b> a month from Dec 2026 to pay for it in cash';
   }
-  if(list==="variable"){var full=eur(r.amount,r.cur); return r.shared?'Your share: <b>'+money(full*C.share)+'</b> of '+money(full)+' / month':'<b>'+money(full*12)+'</b> over the year';}
+  if(list==="variable"){var full=eur(r.amount,r.cur); return r.shared?'Your share: <b>'+money(full*C.share)+'</b> of '+money(full)+' a month · <b>'+money(full*C.share*12)+'</b> budget for 2027':'<b>'+money(full*12)+'</b> budget for 2027'+(r.cur!=="EUR"?' (≈ '+money(full)+' a month)':'');}
   if(list==="emis"){
     if(n(r.outstanding)<=0) return '<span class="pos">Fully paid</span>';
     var sc=emiSchedule(r);
@@ -689,7 +733,12 @@ function sum(k,x,s){return '<div class="sum"><div class="k">'+k+'</div><div clas
 function summaryHTML(which,C){
   if(which==="investments") return sum("Portfolio value",money(C.inv),"1 Jan 2027")+sum("Investing monthly",money(C.invMonthly),money(C.invMonthly*12)+" in 2027")+sum("Projected 31 Dec",money(C.pts[12].inv),"at "+n(state.settings.returnPct)+"% p.a.");
   if(which==="cash"){var mo=C.fixedM+C.varM+C.emiM; var cover=mo>0?(C.cash/mo):0; return sum("Bank balances",money(C.cash))+sum("Fixed deposits",money(C.fd),"value on 1 Jan 2027")+sum("Cash runway",(mo>0?(Math.round(cover*10)/10)+" months":"—"),"of costs + EMIs covered");}
-  if(which==="budget") return sum("Income",money(C.income),"per month")+sum("Fixed costs",money(C.fixedM),"monthly average")+sum("Variable costs",money(C.varM),"your share")+sum("After costs",money(C.income-C.fixedM-C.varM),"before EMIs & investing");
+  if(which==="budget") return sum("Income",money(C.income),"per month")+sum("Fixed costs",money(C.fixedM),"monthly average")+sum("Variable costs",money(C.varM),"monthly avg, forecast")+sum("After costs",money(C.income-C.fixedM-C.varM),"before EMIs & investing");
+  if(which==="variable"){var nm=C.varHas.filter(Boolean).length, dv=C.varActSum-C.varActBud, df=C.varFcY-C.varBudY;
+    return sum("Budget for 2027",money(C.varBudY),money(C.varBudY/12)+" a month")+
+      sum("Spent so far",money(C.varActSum),nm?nm+" month"+(nm>1?"s":"")+" entered · "+'<span class="'+(dv>0.5?"over":"under")+'">'+money(Math.abs(dv))+(dv>0.5?" over":" under")+'</span>':"no months entered yet")+
+      sum("Forecast for 2027",money(C.varFcY),nm?"actuals + budget for the rest":"equals your budget")+
+      sum("Versus budget",'<span class="'+(df>0.5?"neg":df<-0.5?"pos":"")+'">'+(df>0.5?"+":df<-0.5?"−":"")+money(Math.abs(df))+'</span>',df>0.5?"over for the year":df<-0.5?"under for the year":"on budget");}
   if(which==="travel"){var nt=state.trips.length, next=state.trips.slice().sort(function(a,b){return MONTHS.indexOf(a.month)-MONTHS.indexOf(b.month);})[0];
     return sum("Travel in 2027",money(C.travelTotal),nt+" trip"+(nt===1?"":"s"))+sum("Monthly average",money(C.travelM),"to set aside")+sum("Share of income",C.income>0?pct(C.travelM/C.income*100):"—","travel ÷ income")+(next?sum("Next trip",esc(next.month),esc(next.name||"Unnamed trip")):"");}
   if(which==="forecast"){var end=C.rows[11], below=C.rows.filter(function(r){return r.bal<0;}).length, lim=-n(state.settings.overdraft);
@@ -773,7 +822,12 @@ function renderPanel(){
     card("Income","Net amounts that land in your account each month",
       '<div class="fields" style="padding-right:0"><div class="f"><label for="in-salary">Monthly net salary (€)</label><input type="number" step="any" inputmode="decimal" id="in-salary" data-scope="income" data-k="salary" value="'+(n(state.income.salary)||"")+'" placeholder="0"></div><div class="f"><label for="in-other">Other monthly income (€)</label><input type="number" step="any" inputmode="decimal" id="in-other" data-scope="income" data-k="other" value="'+(n(state.income.other)||"")+'" placeholder="0"></div></div>')+
     card("Fixed costs","Bills that stay the same: rent, insurance, subscriptions",listHTML("fixed"))+
-    card("Variable costs","Monthly budgets for day-to-day spending",
+    card("Variable costs",money(C.varM)+" / mo forecast",
+      '<p class="note" style="margin-bottom:12px">Budgets and what you actually spend each month now have their own tab.</p><button class="btn" type="button" data-tab="variable">'+ti("variable")+'Open Variable costs</button>');
+  else if(tab==="variable") h='<div class="summary" data-sum="variable"></div>'+
+    card("Monthly spending",state.variable.length?"Enter what each line actually cost in the month":"",varMonthHTML())+
+    card("2027 month by month","Actual spending where entered, budget for months still to come",'<div class="tbl-wrap" id="vyear"></div>')+
+    card("Budget lines","Monthly budget per spending type. The year budget is 12 months of it",
       '<div class="inline-set" style="margin-bottom:14px"><label for="in-share">Your share of costs marked “shared”</label><input type="number" min="0" max="100" step="1" id="in-share" data-scope="settings" data-k="sharePct" value="'+n(state.settings.sharePct)+'"><span>%</span></div>'+listHTML("variable"));
   else if(tab==="travel") h='<div class="summary" data-sum="travel"></div>'+card("Trips in 2027","Each trip is paid in the month you pick, and shows up in the forecast",listHTML("trips"));
   else if(tab==="forecast") h='<div class="summary" data-sum="forecast"></div>'+
@@ -812,9 +866,54 @@ function refreshDerived(C){
   });
   if(tab==="overview") drawChart(C);
   if(tab==="forecast") renderForecast(C);
+  if(tab==="variable"){updateVarMonth(C); renderVarYear(C);}
 }
 
 function renderAll(){renderBanner();renderTabs();renderPanel();}
+
+/* ---------- variable costs: monthly actuals ---------- */
+var vMonth=(function(){var d=new Date(); return d.getFullYear()===2027?d.getMonth():0;})();
+try{var vm0=localStorage.getItem("fp2027-vmonth"); if(vm0!==null&&+vm0>=0&&+vm0<12) vMonth=+vm0;}catch(e){}
+var CUR_SYM={EUR:"€",INR:"₹",USD:"$"};
+function varMonthHTML(){
+  var lines=state.variable.filter(function(r){return r.id!==editing;});
+  if(!state.variable.length) return '<div class="empty">Add your budget lines below (groceries, dining out…). Then pick a month here and enter what you spent.</div>';
+  var chips='<div class="mchips" role="group" aria-label="Month">'+MONTHS.map(function(m,i){var has=state.variable.some(function(f){return hasAct(f,i);});
+    return '<button type="button" class="mchip'+(has?" has":"")+'" data-vm="'+i+'" aria-pressed="'+(i===vMonth)+'"'+(has?' title="Spending entered"':'')+'>'+m+'</button>';}).join("")+'</div>';
+  var rows=lines.map(function(f){var id="va-"+f.id;
+    var cat=(f.category||"").trim(), lbl=cat||(f.name||"").trim();
+    return '<div class="vline"><button type="button" class="nm" data-edit="'+f.id+'" aria-label="Edit '+esc(lbl||"this line")+'">'+(lbl?'<b>'+esc(lbl)+'</b>':'<b class="unnamed">No category · tap to pick</b>')+'<span>'+(f.shared?'Shared':'Edit')+'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span></button>'+
+      '<div class="vin"><input type="number" step="any" inputmode="decimal" id="'+id+'" data-act="1" data-rid="'+f.id+'" data-mi="'+vMonth+'" value="'+(hasAct(f,vMonth)?+f.act[vMonth]:"")+'" placeholder="'+(n(f.amount)||0)+'" aria-label="'+esc(((f.category||"").trim()||f.name||"Line")+" spent in "+MONTHS[vMonth])+'"><i>'+(CUR_SYM[f.cur]||f.cur)+'</i></div>'+
+      '<div class="vd" data-vd="'+f.id+'"></div></div>';}).join("");
+  return chips+'<div class="vlines">'+rows+'</div><div class="vtot" id="vtot"></div><p class="note" style="margin-top:10px">Tap a line’s category to change it. Leave a line empty and its budget is used in the forecast. For shared lines enter the full amount; your share is applied in the totals.</p>';
+}
+function updateVarMonth(C){
+  var mi=vMonth;
+  document.querySelectorAll("[data-vd]").forEach(function(el){
+    var f=state.variable.find(function(x){return x.id===el.dataset.vd;}); if(!f) return;
+    var b=n(f.amount), has=hasAct(f,mi), a=has?+f.act[mi]:0, p=b>0?Math.min(1,a/b):(a>0?1:0), over=has&&a>b+0.005;
+    var txt=!has?'<span class="faint">Budget '+moneyCur(b,f.cur)+' · not entered</span>':(over?'<span class="over">'+moneyCur(a-b,f.cur)+' over</span>':'<span class="under">'+moneyCur(b-a,f.cur)+' left</span>')+'<span class="faint">of '+moneyCur(b,f.cur)+'</span>';
+    el.innerHTML='<div class="bar-t"><div style="width:'+(p*100)+'%;--c:'+(over?"var(--neg)":"var(--c-var)")+'"></div></div>'+txt;
+  });
+  var t=$("vtot"); if(t){
+    var act=C.varActM[mi], fc=C.varFcM[mi], bud=C.varBudM[mi], d=fc-bud;
+    t.innerHTML='<span class="muted">'+MONTHS[mi]+' 2027'+(C.varHas[mi]?' · <span class="faint">'+money(act)+' entered</span>':'')+'</span><span><b>'+money(fc)+'</b> <span class="faint">of '+money(bud)+'</span> '+(Math.abs(d)>0.5?'<span class="'+(d>0?"over":"under")+'">'+(d>0?"+":"−")+money(Math.abs(d))+'</span>':'')+'</span>';
+  }
+  document.querySelectorAll(".mchip").forEach(function(b){var i=+b.dataset.vm; b.classList.toggle("has",state.variable.some(function(f){return hasAct(f,i);}));});
+}
+function renderVarYear(C){
+  var t=$("vyear"); if(!t) return;
+  if(!state.variable.length){t.innerHTML='<div class="empty">Nothing budgeted yet</div>';return;}
+  var tb=0,ta=0,tf=0;
+  var body=MONTHS.map(function(m,i){
+    var b=C.varBudM[i], f=C.varFcM[i], d=f-b, has=C.varHas[i]; tb+=b; tf+=f; ta+=C.varActM[i];
+    return '<tr data-vm="'+i+'" class="'+(i===vMonth?"cur":"")+'"><td>'+m+(has?'':'<span class="pill est">budget</span>')+'</td><td>'+money(b)+'</td><td>'+(has?money(f):'<span class="faint">'+money(f)+'</span>')+'</td><td class="'+(Math.abs(d)<0.5?"faint":d>0?"neg":"pos")+'">'+(Math.abs(d)<0.5?"–":(d>0?"+":"−")+money(Math.abs(d)))+'</td></tr>';
+  }).join("");
+  var td=tf-tb;
+  t.innerHTML='<table class="fc vy"><thead><tr><th>Month</th><th>Budget</th><th>Actual / est.</th><th>Diff</th></tr></thead><tbody>'+body+
+    '<tr><td><b>2027</b></td><td><b>'+money(tb)+'</b></td><td><b>'+money(tf)+'</b></td><td class="'+(Math.abs(td)<0.5?"":td>0?"neg":"pos")+'"><b>'+(Math.abs(td)<0.5?"–":(td>0?"+":"−")+money(Math.abs(td)))+'</b></td></tr></tbody></table>'+
+    '<p class="note" style="margin-top:10px">Tap a month to enter its spending. These monthly figures feed the Forecast tab and your net-worth projection.</p>';
+}
 
 /* ---------- forecast ---------- */
 function toCur(eurAmt,cur){return eurAmt*rateOf(cur);}
@@ -838,6 +937,17 @@ function suggestions(C){
     out.push({lvl:"warn",t:"You dip below your "+money(buf)+" buffer in "+MONTHS[dip.mi],b:"No overdraft, but the lowest balance is <b>"+money(C.low.bal)+"</b>. Check the months marked in the table."});
   } else if(rows.length){
     out.push({lvl:"good",t:"No overdraft forecast in 2027",b:"Your cash never drops below <b>"+money(C.low.bal)+"</b>"+(buf>0?", which stays above your buffer":"")+"."});
+  }
+
+  // 1b. variable spending against budget
+  if(C.varActBud>0||C.varActSum>0){
+    var vd=C.varActSum-C.varActBud;
+    if(vd>Math.max(20,C.varActBud*0.05)){
+      var worst=C.varLines.filter(function(l){return l.spent-l.bud>0.5;}).sort(function(a,b){return (b.spent-b.bud)-(a.spent-a.bud);})[0];
+      out.push({lvl:"warn",t:"Variable spending is "+money(vd)+" over budget so far",b:"You’ve spent <b>"+money(C.varActSum)+"</b> against <b>"+money(C.varActBud)+"</b> budgeted for the months you entered."+(worst?" The biggest overrun is "+esc(worst.f.category||worst.f.name)+" ("+money(worst.spent-worst.bud)+" over).":"")+" Even if you stick to budget for the remaining months, 2027 ends about <b>"+money(C.varFcY-C.varBudY)+"</b> over your yearly budget."});
+    } else if(vd<-Math.max(20,C.varActBud*0.05)){
+      out.push({lvl:"good",t:"Variable spending is "+money(-vd)+" under budget so far",b:"Across the months you entered, you spent <b>"+money(C.varActSum)+"</b> of <b>"+money(C.varActBud)+"</b> budgeted."});
+    }
   }
 
   // 2. structural deficit
@@ -1047,6 +1157,12 @@ function onField(e){
     if(pr&&tr){Object.assign(tr,pr,{cur:"EUR"}); changed(); renderPanel();}
     return;
   }
+  if(el.dataset&&el.dataset.act){
+    var vr=state.variable.find(function(x){return x.id===el.dataset.rid;}); if(!vr) return;
+    var mi=+el.dataset.mi; if(!Array.isArray(vr.act)) vr.act=MONTHS.map(function(){return null;});
+    vr.act[mi]=(el.value===""||!isFinite(+el.value))?null:+el.value;
+    changed(); refreshDerived(); return;
+  }
   if(!el.dataset||!el.dataset.k) return;
   var k=el.dataset.k, val;
   if(el.type==="checkbox") val=el.checked; else if(el.type==="number") val=el.value===""?0:n(el.value); else val=el.value;
@@ -1064,6 +1180,14 @@ $("panel").addEventListener("input",onField);
 $("panel").addEventListener("change",function(e){if(e.target.tagName==="SELECT"||e.target.type==="checkbox"||e.target.type==="date") onField(e);});
 
 $("panel").addEventListener("click",function(e){
+  var vmb=e.target.closest("[data-vm]");
+  if(vmb){vMonth=+vmb.dataset.vm; try{localStorage.setItem("fp2027-vmonth",String(vMonth));}catch(err){}
+    if(vmb.tagName==="TR"){renderPanel(); var mc=document.querySelector(".mchips"); if(mc) mc.closest(".card").scrollIntoView({block:"start",behavior:"smooth"}); var fi=document.querySelector("[data-act]"); if(fi) fi.focus({preventScroll:true});}
+    else renderPanel();
+    var ch=document.querySelector('.mchip[aria-pressed="true"]'); if(ch&&ch.scrollIntoView) ch.scrollIntoView({block:"nearest",inline:"center"});
+    return;}
+  var gt=e.target.closest("[data-tab]");
+  if(gt){onTab(e); return;}
   var sb=e.target.closest("[data-series]");
   if(sb){chartKey=sb.dataset.series; hoverBar=-1; renderPanel(); return;}
   var a=e.target.closest("[data-add]");
@@ -1098,6 +1222,7 @@ function commitEdit(){
 }
 $("panel").addEventListener("keydown",function(e){
   if(e.key!=="Enter"||e.isComposing) return;
+  if(e.target.dataset&&e.target.dataset.act){e.preventDefault(); var all=[].slice.call(document.querySelectorAll("[data-act]")), ix=all.indexOf(e.target); if(all[ix+1]) all[ix+1].focus(); else e.target.blur(); return;}
   var tr=e.target.closest&&e.target.closest("[data-edit]");
   if(tr&&e.target===tr){e.preventDefault(); openEdit(tr.dataset.edit); return;}
   if(e.target.closest&&e.target.closest(".editor")&&(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")&&e.target.type!=="checkbox"){e.preventDefault(); onField({target:e.target}); commitEdit();}
