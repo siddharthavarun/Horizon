@@ -409,6 +409,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .yr-del{appearance:none;width:100%;margin-top:4px;padding:9px 12px;border:0;border-radius:12px;background:transparent;color:#fecdd3;font:600 13px var(--body);cursor:pointer;text-align:left}
 .yr-del:hover{background:rgba(251,113,133,.1)}
 .yr-del.armed{background:var(--neg);color:#fff}
+.share-info{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;flex-basis:100%;font-size:13px}
+.share-info .warn{color:var(--warn)}
 .status span{white-space:nowrap}
 @media (max-width:430px){
   .topbar{gap:8px}.tb-right{gap:6px;min-width:0}
@@ -535,7 +537,7 @@ var LISTS={
     {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"amount",l:"Monthly budget",t:"num"},
     {k:"shared",l:"Shared cost",t:"check"}],
-    blank:function(){return {name:"",category:"Groceries",cur:"EUR",amount:0,shared:false,act:[null,null,null,null,null,null,null,null,null,null,null,null]};}},
+    blank:function(){return {name:"",category:"Groceries",cur:"EUR",amount:0,shared:true,act:[null,null,null,null,null,null,null,null,null,null,null,null]};}},
   projects:{noun:"project",empty:"No projects yet. Add one-off plans like a driving licence or a home remodel, with your best estimate.",fields:[
     {k:"name",l:"Project",t:"text",ph:"e.g. German driving licence",wide:true},
     {k:"category",l:"Category",t:"select",o:PROJ_CATS},
@@ -1023,13 +1025,13 @@ function renderPanel(){
     card("Monthly spending",state.variable.length?"Enter what each line actually cost in the month":"",varMonthHTML())+
     card(""+YEAR+" month by month","Actual spending where entered, budget for months still to come",'<div class="tbl-wrap" id="vyear"></div>')+
     card("Budget lines","Monthly budget per spending type. The year budget is 12 months of it",
-      '<div class="inline-set" style="margin-bottom:14px"><label for="in-share">Your share of costs marked “shared”</label><input type="number" min="0" max="100" step="1" id="in-share" data-scope="settings" data-k="sharePct" value="'+n(state.settings.sharePct)+'"><span>%</span></div>'+listHTML("variable"));
+      '<div class="inline-set" style="margin-bottom:14px"><label for="in-share">Your share of costs marked “shared”</label><input type="number" min="0" max="100" step="1" id="in-share" data-scope="settings" data-k="sharePct" value="'+n(state.settings.sharePct)+'"><span>%</span><span class="share-info" id="share-info"></span></div>'+listHTML("variable"));
   else if(tab==="projects") h='<div class="summary" data-sum="projects"></div>'+card("Projects in "+YEAR+"","Estimates until you add the actual cost. Costs land in the forecast between the start and end months",listHTML("projects"));
   else if(tab==="travel") h='<div class="summary" data-sum="travel"></div>'+card("Trips in "+YEAR+"","Each trip is paid in the month you pick, and shows up in the forecast",listHTML("trips"));
   else if(tab==="forecast") h='<div class="summary" data-sum="forecast"></div>'+
     card("Running balance, month by month","Bank cash after each month’s income and spending",
       '<div class="chart" id="fchart"></div><div class="legend"><span style="--c:var(--pos)"><i></i>Money left that month</span><span style="--c:var(--neg)"><i></i>Spent more than earned</span><span style="--c:#7dd3fc"><i></i>Balance</span>'+(n(state.settings.buffer)>0?'<span style="--c:var(--warn)"><i></i>Your buffer</span>':'')+'</div>')+
-    card("Monthly forecast","Yearly and quarterly bills land in the month they’re due",'<div class="tbl-wrap" id="ftable"></div>')+
+    card("Monthly forecast","Yearly and quarterly bills land in the month they’re due. Variable is your "+n(state.settings.sharePct)+"% share of lines marked Shared, plus the full amount of the rest",'<div class="tbl-wrap" id="ftable"></div>')+
     card("Suggestions","Based on your figures. General rules of thumb, not personal financial advice",'<div class="tips" id="ftips"></div>');
   else if(tab==="emis") h='<div class="summary" data-sum="emis"></div>'+card("EMIs & loans","Payoff dates assume the payment stays the same",listHTML("emis"));
   else if(tab==="settings") h=card("Assumptions","Used for every total and the "+YEAR+" projection",
@@ -1068,6 +1070,8 @@ function refreshDerived(C){
   C=C||compute(); syncInvFields();
   renderStats(C);
   document.querySelectorAll("[data-sum]").forEach(function(el){el.innerHTML=summaryHTML(el.dataset.sum,C);});
+  var si=$("share-info"); if(si){var tot=state.variable.length, sh=state.variable.filter(function(f){return f.shared;}).length, pc=n(state.settings.sharePct);
+    si.innerHTML=!tot?'':(sh===tot?'<span class="pos">Applies to all '+tot+' line'+(tot>1?'s':'')+'</span>':'<span class="warn">Applies to '+sh+' of '+tot+' lines. The other '+(tot-sh)+' count in full</span><button type="button" class="btn sm" data-shareall>Mark all as shared</button>');}
   document.querySelectorAll("[data-invpie]").forEach(function(el){var h=invPie(); if(el.dataset.sig===h) return; el.dataset.sig=h; el.innerHTML=h;});
   document.querySelectorAll("[data-donut]").forEach(function(el){
     var sig=JSON.stringify(C.varByCat); if(el.dataset.sig===sig) return; el.dataset.sig=sig;
@@ -1400,6 +1404,7 @@ $("panel").addEventListener("input",onField);
 $("panel").addEventListener("change",function(e){if(e.target.tagName==="SELECT"||e.target.type==="checkbox"||e.target.type==="date") onField(e);});
 
 $("panel").addEventListener("click",function(e){
+  if(e.target.closest("[data-shareall]")){state.variable.forEach(function(f){f.shared=true;}); changed(); renderPanel(); return;}
   var sl=e.target.closest(".donut [data-slice]");
   if(sl){focusSlice(sl.closest(".donut"),sl.dataset.slice); return;}
   var vmb=e.target.closest("[data-vm]");
