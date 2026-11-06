@@ -375,6 +375,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .dlg button:hover,.dlg button.on{background:rgba(255,255,255,.07);border-color:var(--hair)}
 .dlg button:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
 .dlg i{width:12px;height:12px;border-radius:4px;background:var(--c)}
+.dlg.tagged button{align-items:start}
+.dlg.tagged i{margin-top:4px}
+.dlg.tagged span:nth-of-type(1){white-space:normal;display:flex;flex-direction:column;gap:1px}
+.dlg .nm1{font-weight:500}
+.dlg .r{font-size:12.5px;color:var(--faint)}
 .dlg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dlg .a{font-variant-numeric:tabular-nums;font-weight:600}
 .dlg .p{font-variant-numeric:tabular-nums;color:var(--faint);font-size:12.5px;min-width:3em;text-align:right}
@@ -487,12 +492,12 @@ var LISTS={
     {k:"freq",l:"How often",t:"select",o:INV_FREQS},
     {k:"monthly",l:"Contribution",s:"Contrib.",t:"num"},
     {k:"payMonth",l:"Paid in",t:"select",o:MONTHS},
-    {k:"rate",l:"Own return % p.a. (optional)",s:"Return",t:"num"},
+    {k:"rate",l:"Expected return % p.a.",s:"Return",t:"num"},
     {k:"endYear",l:"Last payment year (optional)",s:"Last pay",t:"num"},
     {k:"cover",l:"Sum assured",t:"num"},
     {k:"maturity",l:"Maturity date",t:"date"},
     {k:"active",l:"Plan running",t:"check"}],
-    blank:function(){return {product:"",type:"ETF",platform:"",country:"Germany",cur:"EUR",value:0,monthly:0,freq:"Monthly",payMonth:"Jan",rate:0,endYear:0,cover:0,maturity:"",active:true};}},
+    blank:function(){return {product:"",type:"ETF",platform:"",country:"Germany",cur:"EUR",value:0,monthly:0,freq:"Monthly",payMonth:"Jan",rate:7,endYear:0,cover:0,maturity:"",active:true};}},
   banks:{noun:"account",empty:"No bank accounts yet. Add your current and savings accounts.",fields:[
     {k:"name",l:"Account",t:"text",ph:"e.g. N26",wide:true},
     {k:"purpose",l:"Used for",t:"text",ph:"e.g. Salary, emergency fund"},
@@ -562,13 +567,15 @@ var PRESETS={
 };
 
 /* ---------- state ---------- */
-function blankState(){return {v:1,example:false,updatedAt:0,settings:{name:"",inrPerEur:100,usdPerEur:1.15,returnPct:7,sharePct:100,buffer:0,overdraft:0},income:{salary:0,other:0},investments:[],banks:[],fds:[],fixed:[],variable:[],trips:[],projects:[],emis:[]};}
+function blankState(){return {v:1,ratesOwn:true,example:false,updatedAt:0,settings:{name:"",inrPerEur:100,usdPerEur:1.15,returnPct:7,sharePct:100,buffer:0,overdraft:0},income:{salary:0,other:0},investments:[],banks:[],fds:[],fixed:[],variable:[],trips:[],projects:[],emis:[]};}
 function normalize(s){
   var b=blankState(); if(!s||typeof s!=="object") return b;
   var o=JSON.parse(JSON.stringify(s));
   ["settings","income"].forEach(function(k){o[k]=Object.assign({},b[k],o[k]||{});});
   Object.keys(LISTS).forEach(function(k){o[k]=Array.isArray(o[k])?o[k].map(function(r){return Object.assign(LISTS[k].blank(),r,{id:r.id||uid()});}):[];});
   o.variable.forEach(function(r){var a=Array.isArray(r.act)?r.act:[]; r.act=MONTHS.map(function(_,i){var v=a[i]; return (v===null||v===undefined||v===""||!isFinite(+v))?null:+v;});});
+  if(!o.ratesOwn){var old=(s.settings&&isFinite(+s.settings.returnPct)&&+s.settings.returnPct>0)?+s.settings.returnPct:7;
+    o.investments.forEach(function(r){if(!(n(r.rate)>0)) r.rate=old;}); o.ratesOwn=true;}
   o.example=!!o.example; o.updatedAt=+o.updatedAt||0; o.v=1;
   return o;
 }
@@ -618,7 +625,7 @@ function projByMonth(p){var m=[0,0,0,0,0,0,0,0,0,0,0,0], c=projCost(p), sp=projS
   if(p.pay==="At start") m[sp[0]]=c; else if(p.pay==="At end") m[sp[1]]=c;
   else{var k=sp[1]-sp[0]+1; for(var i=sp[0];i<=sp[1];i++) m[i]=c/k;}
   return m;}
-function invRate(i){var own=n(i.rate); return (own>0?own:n(state.settings.returnPct))/1200;}
+function invRate(i){return n(i.rate)/1200;}
 function invEnded(i){var e=Math.round(n(i.endYear)); return e>0&&YEAR>e;}
 function invInMonth(i,mi){
   if(!i.active||invEnded(i)) return 0; var a=n(i.monthly), f=i.freq||"Monthly"; if(f==="Monthly") return a;
@@ -808,11 +815,11 @@ function listHTML(list){
 function calcText(list,r,C){
   var r12=n(state.settings.returnPct);
   if(list==="investments"){
-    var mo=n(r.monthly), v=n(r.value), rr=invRate(r), end=v, yr=invEnded(r)?0:invPerYear(r), f=r.freq||"Monthly", rp=n(r.rate)>0?n(r.rate):r12;
+    var mo=n(r.monthly), v=n(r.value), rr=invRate(r), end=v, yr=invEnded(r)?0:invPerYear(r), f=r.freq||"Monthly", rp=n(r.rate);
     for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i);
     var how=f==="Monthly"?moneyCur(mo,r.cur)+' a month':f==="Quarterly"?moneyCur(mo,r.cur)+' a quarter, '+invWhen(r):f==="Yearly"?'paid '+invWhen(r):'one-time, in '+invMonths(r)[0];
     var ended=invEnded(r)&&mo>0;
-    var s=(ended?'<span class="pos">Payments finished in '+Math.round(n(r.endYear))+'</span> · ':(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':'')))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+rp+'% p.a.'+(n(r.rate)>0?' <span class="faint">(its own rate)</span>':'');
+    var s=(ended?'<span class="pos">Payments finished in '+Math.round(n(r.endYear))+'</span> · ':(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':'')))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+rp+'% p.a.';
     if(r.cur!=="EUR") s+=' <span class="faint">(≈ '+money(eur(end,r.cur))+')</span>';
     var extra=[], ey=Math.round(n(r.endYear));
     if(ey>0&&!ended&&mo>0){var left=ey-YEAR; extra.push(left>0?'Payments run until '+ey+', '+left+' more year'+(left>1?'s':'')+' after '+YEAR:'Last payment is in '+YEAR);}
@@ -867,7 +874,7 @@ function calcText(list,r,C){
 
 function sum(k,x,s){return '<div class="sum"><div class="k">'+k+'</div><div class="x num">'+x+'</div>'+(s?'<div class="s">'+s+'</div>':'')+'</div>';}
 function summaryHTML(which,C){
-  if(which==="investments") return sum("Portfolio value",money(C.inv),"1 Jan "+YEAR+"")+sum("Investing in "+YEAR,money(C.invMonthly*12),money(C.invMonthly)+" a month on average")+sum("Projected 31 Dec",money(C.pts[12].inv),"at "+n(state.settings.returnPct)+"% p.a.");
+  if(which==="investments") return sum("Portfolio value",money(C.inv),"1 Jan "+YEAR+"")+sum("Investing in "+YEAR,money(C.invMonthly*12),money(C.invMonthly)+" a month on average");
   if(which==="cash"){var mo=C.fixedM+C.varM+C.emiM; var cover=mo>0?(C.cash/mo):0; return sum("Bank balances",money(C.cash))+sum("Fixed deposits",money(C.fd),"value on 1 Jan "+YEAR+"")+sum("Cash runway",(mo>0?(Math.round(cover*10)/10)+" months":"—"),"of costs + EMIs covered");}
   if(which==="budget") return sum("Income",money(C.income),"per month")+sum("Fixed costs",money(C.fixedM),"monthly average")+sum("Variable costs",money(C.varM),"monthly avg, forecast")+sum("After costs",money(C.income-C.fixedM-C.varM),"before EMIs & investing");
   if(which==="variable"){var nm=C.varHas.filter(Boolean).length, dv=C.varActSum-C.varActBud, df=C.varFcY-C.varBudY;
@@ -893,7 +900,8 @@ function summaryHTML(which,C){
 
 function card(title,sub,body,id){return '<div class="card glass"'+(id?' id="'+id+'"':'')+'><div class="card-h"><h2>'+title+'</h2>'+(sub?'<p>'+sub+'</p>':'')+'</div>'+body+'</div>';}
 var PIE=["#a78bfa","#60a5fa","#34d399","#fbbf24","#f472b6","#fb923c","#2dd4bf","#f87171","#e879f9","#94a3b8"];
-function donutHTML(obj,total,emptyMsg){
+function donutHTML(obj,total,emptyMsg,o){
+  o=o||{label:"Variable costs split by category",sub:"per month",note:function(top,total){return esc(top[0])+" is your biggest variable cost at "+Math.round(top[1]/total*100)+"%, about "+money(top[1]*12)+" a year. Shared costs count at your share. Tap a slice or row to focus it.";}};
   var e=Object.keys(obj).map(function(k){return [k,obj[k]];}).filter(function(x){return x[1]>0.5;}).sort(function(a,b){return b[1]-a[1];});
   if(!e.length||total<=0) return '<div class="empty">'+(emptyMsg||"Nothing added yet")+'</div>';
   var cx=100,cy=100,R=92,r=58,a0=-Math.PI/2,paths="";
@@ -907,17 +915,29 @@ function donutHTML(obj,total,emptyMsg){
     a0+=frac*2*Math.PI;
   });
   var top=e[0];
-  return '<div class="donut" data-total="'+total+'"><svg viewBox="0 0 200 200" role="img" aria-label="Variable costs split by category">'+paths+
+  return '<div class="donut" data-total="'+total+'" data-sub="'+esc(o.sub)+'"><svg viewBox="0 0 200 200" role="img" aria-label="'+esc(o.label)+'">'+paths+
     '<text class="dc-v" x="100" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="#fff">'+money(total)+'</text>'+
-    '<text class="dc-k" x="100" y="120" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.55)">per month</text></svg>'+
-    '<div class="dlg">'+e.map(function(x,i){return '<button type="button" data-slice="'+i+'" data-name="'+esc(x[0])+'" data-amt="'+x[1]+'" style="--c:'+PIE[i%PIE.length]+'"><i></i><span>'+esc(x[0])+'</span><span class="a">'+money(x[1])+'</span><span class="p">'+Math.round(x[1]/total*100)+'%</span></button>';}).join("")+'</div></div>'+
-    '<p class="note" style="margin-top:12px">'+esc(top[0])+' is your biggest variable cost at '+Math.round(top[1]/total*100)+'%, about '+money(top[1]*12)+' a year. Shared costs count at your share. Tap a slice or row to focus it.</p>';
+    '<text class="dc-k" x="100" y="120" text-anchor="middle" font-size="11.5" fill="rgba(255,255,255,.55)">'+esc(o.sub)+'</text></svg>'+
+    '<div class="dlg'+(o.tag?' tagged':'')+'">'+e.map(function(x,i){return '<button type="button" data-slice="'+i+'" data-name="'+esc(x[0])+'" data-amt="'+x[1]+'" style="--c:'+PIE[i%PIE.length]+'"><i></i><span>'+(o.tag?'<b class="nm1">'+esc(x[0])+'</b><small class="r">'+o.tag(x[0])+'</small>':esc(x[0]))+'</span><span class="a">'+money(x[1])+'</span><span class="p">'+Math.round(x[1]/total*100)+'%</span></button>';}).join("")+'</div></div>'+
+    '<p class="note" style="margin-top:12px">'+o.note(top,total)+'</p>';
+}
+function invPie(){
+  var obj={}, rates={}, total=0, start=0, seen={};
+  state.investments.forEach(function(r){
+    var end=n(r.value), rr=invRate(r); for(var m=0;m<12;m++) end=end*(1+rr)+invInMonth(r,m);
+    var v=eur(end,r.cur); if(v<=0.5) return;
+    var nm=(r.product||"Untitled").trim()||"Untitled"; if(seen[nm]){seen[nm]++; nm+=" ("+seen[nm]+")";} else seen[nm]=1;
+    obj[nm]=v; rates[nm]=n(r.rate); total+=v; start+=eur(r.value,r.cur);
+  });
+  return donutHTML(obj,total,"Add investments below to see how your money is split",{label:"Investments split by product, projected to 31 December",sub:"by 31 Dec",
+    tag:function(nm){return "at "+rates[nm]+"% p.a.";},
+    note:function(top,tot){return "Each investment is projected to 31 Dec at its own expected return, shown under its name. "+esc(top[0])+" is your largest at "+Math.round(top[1]/tot*100)+"%. Portfolio "+money(start)+" on 1 Jan → "+money(tot)+" by 31 Dec. Tap a slice or row to focus it.";}});
 }
 function focusSlice(wrap,i){
   var cur=wrap.getAttribute("data-on"), on=(cur===String(i))?null:String(i);
   wrap.querySelectorAll("[data-slice]").forEach(function(el){el.classList.toggle("on",on!==null&&el.dataset.slice===on);});
   var v=wrap.querySelector(".dc-v"), k=wrap.querySelector(".dc-k"), tot=+wrap.dataset.total;
-  if(on===null){wrap.removeAttribute("data-on"); v.textContent=money(tot); k.textContent="per month";}
+  if(on===null){wrap.removeAttribute("data-on"); v.textContent=money(tot); k.textContent=wrap.dataset.sub||"per month";}
   else{var b=wrap.querySelector('.dlg [data-slice="'+on+'"]'); wrap.setAttribute("data-on",on); v.textContent=money(+b.dataset.amt); k.textContent=b.dataset.name.length>16?b.dataset.name.slice(0,15)+"…":b.dataset.name;}
 }
 function barsHTML(obj,color,total){
@@ -979,7 +999,7 @@ function overviewHTML(C){
     '<div class="ledger"><span class="h"></span><span class="h n">1 Jan</span><span class="h n">31 Dec</span>'+
     row("Investments",p0.inv,p12.inv)+row("Fixed deposits",p0.fd,p12.fd)+row("Cash",p0.cash,p12.cash)+row("EMIs left",p0.emi,p12.emi,true)+
     '<span class="tot">Net worth</span><span class="n tot faint">'+money(p0.nw)+'</span><span class="n tot">'+money(p12.nw)+'</span></div>'+
-    '<p class="note" style="margin-top:12px">Assumes '+n(state.settings.returnPct)+'% yearly return on investments, steady income and costs, and bills and trips paid in the month they’re due.</p>');
+    '<p class="note" style="margin-top:12px">Assumes each investment grows at its own expected return, steady income and costs, and bills and trips paid in the month they’re due.</p>');
   var types=card("Investments by type",money(C.inv),barsHTML(C.byType,"var(--c-inv)",C.inv));
   var fixed=card("Fixed costs by category",money(C.fixedM)+" / mo",barsHTML(C.fixedByCat,"var(--c-fixed)",C.fixedM));
   var vari=card("Variable costs by category",money(C.varM)+" / mo",donutHTML(C.varByCat,C.varM,"Add variable costs in the Variable costs tab"));
@@ -990,7 +1010,7 @@ function renderPanel(){
   el.setAttribute("aria-labelledby","tab-"+tab);
   $("stats").hidden=(tab!=="overview");
   if(tab==="overview") h=overviewHTML(C);
-  else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Investments & monthly plans","Values in each product’s own currency",listHTML("investments"));
+  else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Where your money is invested","Projected value on 31 Dec "+YEAR+", each at its own expected return",'<div data-invpie></div>')+card("Investments & monthly plans","Values in each product’s own currency",listHTML("investments"));
   else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+card("Bank balances","Current, savings and overnight accounts",listHTML("banks"))+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
   else if(tab==="budget") h='<div class="summary" data-sum="budget"></div>'+
     card("Income","Net amounts that land in your account each month",
@@ -1017,7 +1037,6 @@ function renderPanel(){
       '<div class="f"><label for="s-name">Your name (for the greeting)</label><input type="text" id="s-name" data-scope="settings" data-k="name" value="'+esc(state.settings.name||"")+'" placeholder="e.g. Sid" autocomplete="given-name"></div>'+
       '<div class="f"><label for="s-inr">₹ per €1</label><input type="number" step="any" inputmode="decimal" id="s-inr" data-scope="settings" data-k="inrPerEur" value="'+n(state.settings.inrPerEur)+'"></div>'+
       '<div class="f"><label for="s-usd">$ per €1</label><input type="number" step="any" inputmode="decimal" id="s-usd" data-scope="settings" data-k="usdPerEur" value="'+n(state.settings.usdPerEur)+'"></div>'+
-      '<div class="f"><label for="s-ret">Expected investment return, % per year</label><input type="number" step="any" inputmode="decimal" id="s-ret" data-scope="settings" data-k="returnPct" value="'+n(state.settings.returnPct)+'"></div>'+
       '<div class="f"><label for="s-share">Your share of shared costs, %</label><input type="number" step="1" id="s-share" data-scope="settings" data-k="sharePct" value="'+n(state.settings.sharePct)+'"></div>'+
       '<div class="f"><label for="s-buf">Safety buffer to keep in cash (€)</label><input type="number" step="any" inputmode="decimal" id="s-buf" data-scope="settings" data-k="buffer" value="'+(n(state.settings.buffer)||"")+'" placeholder="0"></div>'+
       '<div class="f"><label for="s-od">Overdraft limit (Dispo, €)</label><input type="number" step="any" inputmode="decimal" id="s-od" data-scope="settings" data-k="overdraft" value="'+(n(state.settings.overdraft)||"")+'" placeholder="0"></div></div>'+
@@ -1049,6 +1068,7 @@ function refreshDerived(C){
   C=C||compute(); syncInvFields();
   renderStats(C);
   document.querySelectorAll("[data-sum]").forEach(function(el){el.innerHTML=summaryHTML(el.dataset.sum,C);});
+  document.querySelectorAll("[data-invpie]").forEach(function(el){var h=invPie(); if(el.dataset.sig===h) return; el.dataset.sig=h; el.innerHTML=h;});
   document.querySelectorAll("[data-donut]").forEach(function(el){
     var sig=JSON.stringify(C.varByCat); if(el.dataset.sig===sig) return; el.dataset.sig=sig;
     el.innerHTML=donutHTML(C.varByCat,C.varM,"Add budget lines below to see the split");});
@@ -1110,7 +1130,7 @@ function renderVarYear(C){
 /* ---------- forecast ---------- */
 function toCur(eurAmt,cur){return eurAmt*rateOf(cur);}
 function suggestions(C){
-  var S=state.settings, out=[], buf=n(S.buffer), od=n(S.overdraft), inc=C.income, ret=n(S.returnPct);
+  var S=state.settings, out=[], buf=n(S.buffer), od=n(S.overdraft), inc=C.income, ret=(function(){var w=0,t=0; state.investments.forEach(function(i){var v=eur(n(i.value)+invPerYear(i),i.cur); w+=v; t+=v*n(i.rate);}); return w>0?Math.round(t/w*10)/10:0;})();
   var monthlyCosts=C.fixedM+C.varM+C.emiM, rows=C.rows;
   if(!inc&&!monthlyCosts&&!C.cash) return [{lvl:"tip",t:"Add your numbers to get suggestions",b:"Start with your salary and costs under <b>Income & costs</b>, then your bank balances."}];
 
@@ -1168,7 +1188,7 @@ function suggestions(C){
   if(dear){
     var base=emiSchedule(dear), extra=toCur(100,dear.cur), fast=emiSchedule(Object.assign({},dear,{payment:n(dear.payment)+extra}));
     if(base.ok&&fast.ok){
-      out.push({lvl:"tip",t:"Overpaying "+esc(dear.name||"your loan")+" ("+n(dear.rate)+"%) could pay off",b:"An extra €100 a month would clear it <b>"+(base.months-fast.months)+" months sooner</b> and save about <b>"+moneyCur(base.interest-fast.interest,dear.cur)+"</b> in interest. Its rate is above the "+ret+"% return you assume for investments. Check first whether your lender charges for early repayment."});
+      out.push({lvl:"tip",t:"Overpaying "+esc(dear.name||"your loan")+" ("+n(dear.rate)+"%) could pay off",b:"An extra €100 a month would clear it <b>"+(base.months-fast.months)+" months sooner</b> and save about <b>"+moneyCur(base.interest-fast.interest,dear.cur)+"</b> in interest. "+(ret>0?"Its rate is above the "+ret+"% average return you expect from your investments.":"Paying it down saves that interest for certain.")+" Check first whether your lender charges for early repayment."});
     }
   }
 
