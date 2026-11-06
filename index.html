@@ -439,7 +439,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 "use strict";
 
 /* ---------- constants ---------- */
-var TYPES=["ETF","Mutual fund","Stock","Bond","Crypto","Pension","Gold","Other"];
+var TYPES=["ETF","Mutual fund","Stock","Bond","Policy","Crypto","Pension","Gold","Other"];
 var FIXED_CATS=["Housing","Utilities","Insurance","Phone & internet","Transport","Subscriptions","Family support","Education","Other"];
 var VAR_CATS=["Groceries","Dining out","Shopping","Entertainment","Travel","Health","Personal care","Gifts","Household","Add on","Other"];
 var CURS=["EUR","INR","USD"];
@@ -487,8 +487,12 @@ var LISTS={
     {k:"freq",l:"How often",t:"select",o:INV_FREQS},
     {k:"monthly",l:"Contribution",s:"Contrib.",t:"num"},
     {k:"payMonth",l:"Paid in",t:"select",o:MONTHS},
+    {k:"rate",l:"Own return % p.a. (optional)",s:"Return",t:"num"},
+    {k:"endYear",l:"Last payment year (optional)",s:"Last pay",t:"num"},
+    {k:"cover",l:"Sum assured",t:"num"},
+    {k:"maturity",l:"Maturity date",t:"date"},
     {k:"active",l:"Plan running",t:"check"}],
-    blank:function(){return {product:"",type:"ETF",platform:"",country:"Germany",cur:"EUR",value:0,monthly:0,freq:"Monthly",payMonth:"Jan",active:true};}},
+    blank:function(){return {product:"",type:"ETF",platform:"",country:"Germany",cur:"EUR",value:0,monthly:0,freq:"Monthly",payMonth:"Jan",rate:0,endYear:0,cover:0,maturity:"",active:true};}},
   banks:{noun:"account",empty:"No bank accounts yet. Add your current and savings accounts.",fields:[
     {k:"name",l:"Account",t:"text",ph:"e.g. N26",wide:true},
     {k:"purpose",l:"Used for",t:"text",ph:"e.g. Salary, emergency fund"},
@@ -614,8 +618,10 @@ function projByMonth(p){var m=[0,0,0,0,0,0,0,0,0,0,0,0], c=projCost(p), sp=projS
   if(p.pay==="At start") m[sp[0]]=c; else if(p.pay==="At end") m[sp[1]]=c;
   else{var k=sp[1]-sp[0]+1; for(var i=sp[0];i<=sp[1];i++) m[i]=c/k;}
   return m;}
+function invRate(i){var own=n(i.rate); return (own>0?own:n(state.settings.returnPct))/1200;}
+function invEnded(i){var e=Math.round(n(i.endYear)); return e>0&&YEAR>e;}
 function invInMonth(i,mi){
-  if(!i.active) return 0; var a=n(i.monthly), f=i.freq||"Monthly"; if(f==="Monthly") return a;
+  if(!i.active||invEnded(i)) return 0; var a=n(i.monthly), f=i.freq||"Monthly"; if(f==="Monthly") return a;
   var due=Math.max(0,MONTHS.indexOf(i.payMonth));
   if(f==="Quarterly") return ((mi-due)%3+3)%3===0?a:0;
   return mi===due?a:0;
@@ -664,7 +670,7 @@ function compute(){
   var c=cash, pts=[{inv:inv,fd:fd,cash:cash,emi:emiOut,nw:nw,date:START}];
   for(var m=1;m<=12;m++){
     var contrib=0, paid=0, invT=0, emiT=0, fdT=0;
-    state.investments.forEach(function(i,ix){var add=invInMonth(i,m-1); invV[ix]=invV[ix]*(1+r)+add; contrib+=eur(add,i.cur); invT+=eur(invV[ix],i.cur);});
+    state.investments.forEach(function(i,ix){var add=invInMonth(i,m-1); invV[ix]=invV[ix]*(1+invRate(i))+add; contrib+=eur(add,i.cur); invT+=eur(invV[ix],i.cur);});
     state.emis.forEach(function(e,ix){var b=emiB[ix]; if(b>0){var it=b*n(e.rate)/1200, p=Math.min(n(e.payment),b+it); emiB[ix]=Math.max(0,b+it-p); paid+=eur(p,e.cur);} emiT+=eur(emiB[ix],e.cur);});
     var at=new Date(YEAR,m,1), mi=m-1;
     state.fds.forEach(function(f){fdT+=eur(fdValueAt(f,at),f.cur);});
@@ -763,7 +769,7 @@ function cellHTML(list,r,f){
 }
 function shortCalc(list,r,C){
   var r12=n(state.settings.returnPct);
-  if(list==="investments"){var end=n(r.value),rr=r12/1200; for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i); return moneyCur(end,r.cur);}
+  if(list==="investments"){var end=n(r.value),rr=invRate(r); for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i); return moneyCur(end,r.cur);}
   if(list==="banks") return money(eur(r.balance,r.cur));
   if(list==="fds"){var m=parseDate(r.maturity),s0=parseDate(r.start); return (m&&s0&&m>s0)?moneyCur(fdValueAt(r,m),r.cur):'—';}
   if(list==="fixed") return money(eur(n(r.amount)/freqDiv(r.freq),r.cur));
@@ -786,7 +792,7 @@ function listHTML(list){
   var saved=rows.filter(function(r){return r.id!==editing;}), ed=rows.find(function(r){return r.id===editing;});
   var body='';
   if(saved.length){
-    var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth")&&!(list==="investments"&&f.k==="payMonth");});
+    var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth")&&!(list==="investments"&&["payMonth","rate","endYear","cover","maturity"].indexOf(f.k)>=0);});
     body='<div class="dbt-wrap"><table class="dbt"><thead><tr>'+TF.map(function(f,i){return '<th'+(i===0?' class="first"':(f.t==="num"?' class="n"':''))+'>'+(f.s?'<span class="hl">'+esc(f.l)+'</span><span class="hs">'+esc(f.s)+'</span>':esc(f.l))+'</th>';}).join("")+'<th class="n derived">'+(DERIVED_S[list]?'<span class="hl">'+DERIVED[list]+'</span><span class="hs">'+DERIVED_S[list]+'</span>':DERIVED[list])+'</th><th></th></tr></thead><tbody>'+
       saved.map(function(r){
         return '<tr tabindex="0" data-edit="'+r.id+'" aria-label="Edit '+esc(r[L.fields[0].k]||L.noun)+'">'+TF.map(function(f,i){
@@ -802,11 +808,16 @@ function listHTML(list){
 function calcText(list,r,C){
   var r12=n(state.settings.returnPct);
   if(list==="investments"){
-    var mo=n(r.monthly), v=n(r.value), rr=r12/1200, end=v, yr=invPerYear(r), f=r.freq||"Monthly";
+    var mo=n(r.monthly), v=n(r.value), rr=invRate(r), end=v, yr=invEnded(r)?0:invPerYear(r), f=r.freq||"Monthly", rp=n(r.rate)>0?n(r.rate):r12;
     for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i);
     var how=f==="Monthly"?moneyCur(mo,r.cur)+' a month':f==="Quarterly"?moneyCur(mo,r.cur)+' a quarter, '+invWhen(r):f==="Yearly"?'paid '+invWhen(r):'one-time, in '+invMonths(r)[0];
-    var s=(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':''))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+r12+'% p.a.';
+    var ended=invEnded(r)&&mo>0;
+    var s=(ended?'<span class="pos">Payments finished in '+Math.round(n(r.endYear))+'</span> · ':(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':'')))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+rp+'% p.a.'+(n(r.rate)>0?' <span class="faint">(its own rate)</span>':'');
     if(r.cur!=="EUR") s+=' <span class="faint">(≈ '+money(eur(end,r.cur))+')</span>';
+    var extra=[], ey=Math.round(n(r.endYear));
+    if(ey>0&&!ended&&mo>0){var left=ey-YEAR; extra.push(left>0?'Payments run until '+ey+', '+left+' more year'+(left>1?'s':'')+' after '+YEAR:'Last payment is in '+YEAR);}
+    if(r.type==="Policy"){var md=parseDate(r.maturity); if(n(r.cover)>0) extra.push('Sum assured '+moneyCur(n(r.cover),r.cur)); if(md) extra.push('matures '+dateLabel(md));}
+    if(extra.length) s+='<br><span class="faint">'+extra.join(' · ')+'</span>';
     return s;
   }
   if(list==="banks"){return r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate':'Counted as cash in your net worth';}
@@ -1029,6 +1040,7 @@ function syncInvFields(){
     lab.textContent=f==="Quarterly"?"First payment in":"Paid in";
     var amt=document.getElementById("f-investments-"+r.id+"-monthly");
     if(amt){var al=amt.closest(".f").querySelector("label"); al.textContent=f==="Monthly"?"Monthly amount":f==="Quarterly"?"Amount per quarter":f==="Yearly"?"Yearly amount":"One-time amount";}
+    ["cover","maturity"].forEach(function(k){var el=document.getElementById("f-investments-"+r.id+"-"+k); if(el) el.closest(".f").hidden=(r.type!=="Policy");});
     var act=document.getElementById("f-investments-"+r.id+"-active");
     if(act){act.closest(".f").querySelector("label").textContent=f==="One-time"?"Will be paid":"Plan running";}
   });
