@@ -444,6 +444,7 @@ var VAR_CATS=["Groceries","Dining out","Shopping","Entertainment","Travel","Heal
 var CURS=["EUR","INR","USD"];
 var COUNTRIES=["Not set","Germany","India","USA","Ireland","Luxembourg","Netherlands","UK","Global / multi-country","Other"];
 var FREQS=["Monthly","Quarterly","Yearly"];
+var INV_FREQS=["Monthly","Quarterly","Yearly","One-time"];
 var MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 var YEARS_KEY="fp-years", YEAR_KEY="fp-year";
 function knownYears(){
@@ -479,9 +480,11 @@ var LISTS={
     {k:"country",l:"Country",t:"select",o:COUNTRIES},
     {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"value",l:"Value on 1 Jan "+YEAR+"",t:"num"},
-    {k:"monthly",l:"Monthly plan",t:"num"},
+    {k:"freq",l:"How often",t:"select",o:INV_FREQS},
+    {k:"monthly",l:"Contribution",s:"Contrib.",t:"num"},
+    {k:"payMonth",l:"Paid in",t:"select",o:MONTHS},
     {k:"active",l:"Plan running",t:"check"}],
-    blank:function(){return {product:"",type:"ETF",platform:"",country:"Germany",cur:"EUR",value:0,monthly:0,active:true};}},
+    blank:function(){return {product:"",type:"ETF",platform:"",country:"Germany",cur:"EUR",value:0,monthly:0,freq:"Monthly",payMonth:"Jan",active:true};}},
   banks:{noun:"account",empty:"No bank accounts yet. Add your current and savings accounts.",fields:[
     {k:"name",l:"Account",t:"text",ph:"e.g. N26",wide:true},
     {k:"purpose",l:"Used for",t:"text",ph:"e.g. Salary, emergency fund"},
@@ -590,6 +593,15 @@ function emiSchedule(e){
   while(bal>0.005&&months<1200){var i=bal*r; interest+=i; bal=bal+i-Math.min(pay,bal+i); months++;}
   return {months:months,interest:interest,ok:true};
 }
+function invInMonth(i,mi){
+  if(!i.active) return 0; var a=n(i.monthly), f=i.freq||"Monthly"; if(f==="Monthly") return a;
+  var due=Math.max(0,MONTHS.indexOf(i.payMonth));
+  if(f==="Quarterly") return ((mi-due)%3+3)%3===0?a:0;
+  return mi===due?a:0;
+}
+function invPerYear(i){var t=0; for(var mi=0;mi<12;mi++) t+=invInMonth(Object.assign({},i,{active:true}),mi); return t;}
+function invMonths(i){var f=i.freq||"Monthly", due=Math.max(0,MONTHS.indexOf(i.payMonth)); if(f==="Quarterly") return [0,1,2,3].map(function(q){return MONTHS[(due+q*3)%12];}); return [MONTHS[due]];}
+function invWhen(i){var f=i.freq||"Monthly"; if(f==="Monthly") return "every month"; if(f==="Quarterly") return "in "+invMonths(i).join(", "); if(f==="Yearly") return "every year in "+invMonths(i)[0]; return "once, in "+invMonths(i)[0];}
 function freqDiv(f){return f==="Yearly"?12:f==="Quarterly"?3:1;}
 function fixedInMonth(f,mi){
   if(f.freq!=="Yearly"&&f.freq!=="Quarterly") return n(f.amount);
@@ -605,7 +617,7 @@ function compute(){
   var S=state.settings, share=n(S.sharePct)/100, r=n(S.returnPct)/100/12;
   var income=n(state.income.salary)+n(state.income.other);
   var inv=0, invMonthly=0, byType={};
-  state.investments.forEach(function(i){var v=eur(i.value,i.cur); inv+=v; if(i.active) invMonthly+=eur(i.monthly,i.cur); byType[i.type]=(byType[i.type]||0)+v;});
+  state.investments.forEach(function(i){var v=eur(i.value,i.cur); inv+=v; if(i.active) invMonthly+=eur(invPerYear(i),i.cur)/12; byType[i.type]=(byType[i.type]||0)+v;});
   var cash=0; state.banks.forEach(function(b){cash+=eur(b.balance,b.cur);});
   var fd=0; state.fds.forEach(function(f){fd+=eur(fdValueAt(f,START),f.cur);});
   var fixedM=0, fixedByCat={}; state.fixed.forEach(function(f){var v=eur(f.amount,f.cur)/freqDiv(f.freq); fixedM+=v; var fc=(f.category||"").trim()||"Other"; fixedByCat[fc]=(fixedByCat[fc]||0)+v;});
@@ -628,7 +640,7 @@ function compute(){
   var c=cash, pts=[{inv:inv,fd:fd,cash:cash,emi:emiOut,nw:nw,date:START}];
   for(var m=1;m<=12;m++){
     var contrib=0, paid=0, invT=0, emiT=0, fdT=0;
-    state.investments.forEach(function(i,ix){var add=i.active?n(i.monthly):0; invV[ix]=invV[ix]*(1+r)+add; contrib+=eur(add,i.cur); invT+=eur(invV[ix],i.cur);});
+    state.investments.forEach(function(i,ix){var add=invInMonth(i,m-1); invV[ix]=invV[ix]*(1+r)+add; contrib+=eur(add,i.cur); invT+=eur(invV[ix],i.cur);});
     state.emis.forEach(function(e,ix){var b=emiB[ix]; if(b>0){var it=b*n(e.rate)/1200, p=Math.min(n(e.payment),b+it); emiB[ix]=Math.max(0,b+it-p); paid+=eur(p,e.cur);} emiT+=eur(emiB[ix],e.cur);});
     var at=new Date(YEAR,m,1), mi=m-1;
     state.fds.forEach(function(f){fdT+=eur(fdValueAt(f,at),f.cur);});
@@ -720,11 +732,12 @@ function cellHTML(list,r,f){
   }
   if(f.t==="date"){var d=parseDate(v); return '<td>'+(d?dateLabel(d):'—')+'</td>';}
   if(list==="fixed"&&f.k==="dueMonth"&&r.freq==="Monthly") return '<td class="faint">—</td>';
+  if(list==="investments"&&f.k==="freq"){var fq=r.freq||"Monthly"; return '<td>'+esc(fq)+(fq==="Monthly"?'':' <span class="faint">· '+(fq==="Quarterly"?'from ':'')+esc(r.payMonth||"Jan")+'</span>')+'</td>';}
   return '<td>'+(v?esc(v):'<span class="faint">—</span>')+'</td>';
 }
 function shortCalc(list,r,C){
   var r12=n(state.settings.returnPct);
-  if(list==="investments"){var end=n(r.value),rr=r12/1200; for(var i=0;i<12;i++) end=end*(1+rr)+(r.active?n(r.monthly):0); return moneyCur(end,r.cur);}
+  if(list==="investments"){var end=n(r.value),rr=r12/1200; for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i); return moneyCur(end,r.cur);}
   if(list==="banks") return money(eur(r.balance,r.cur));
   if(list==="fds"){var m=parseDate(r.maturity),s0=parseDate(r.start); return (m&&s0&&m>s0)?moneyCur(fdValueAt(r,m),r.cur):'—';}
   if(list==="fixed") return money(eur(n(r.amount)/freqDiv(r.freq),r.cur));
@@ -746,7 +759,7 @@ function listHTML(list){
   var saved=rows.filter(function(r){return r.id!==editing;}), ed=rows.find(function(r){return r.id===editing;});
   var body='';
   if(saved.length){
-    var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth");});
+    var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth")&&!(list==="investments"&&f.k==="payMonth");});
     body='<div class="dbt-wrap"><table class="dbt"><thead><tr>'+TF.map(function(f,i){return '<th'+(i===0?' class="first"':(f.t==="num"?' class="n"':''))+'>'+(f.s?'<span class="hl">'+esc(f.l)+'</span><span class="hs">'+esc(f.s)+'</span>':esc(f.l))+'</th>';}).join("")+'<th class="n derived">'+(DERIVED_S[list]?'<span class="hl">'+DERIVED[list]+'</span><span class="hs">'+DERIVED_S[list]+'</span>':DERIVED[list])+'</th><th></th></tr></thead><tbody>'+
       saved.map(function(r){
         return '<tr tabindex="0" data-edit="'+r.id+'" aria-label="Edit '+esc(r[L.fields[0].k]||L.noun)+'">'+TF.map(function(f,i){
@@ -762,9 +775,10 @@ function listHTML(list){
 function calcText(list,r,C){
   var r12=n(state.settings.returnPct);
   if(list==="investments"){
-    var mo=n(r.monthly), v=n(r.value), rr=r12/1200, end=v;
-    for(var i=0;i<12;i++) end=end*(1+rr)+(r.active?mo:0);
-    var s=(r.active&&mo>0?'<b>'+moneyCur(mo*12,r.cur)+'</b> going in during '+YEAR+' · ':(mo>0?'<span class="warn">Plan paused</span> · ':''))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+r12+'% p.a.';
+    var mo=n(r.monthly), v=n(r.value), rr=r12/1200, end=v, yr=invPerYear(r), f=r.freq||"Monthly";
+    for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i);
+    var how=f==="Monthly"?moneyCur(mo,r.cur)+' a month':f==="Quarterly"?moneyCur(mo,r.cur)+' a quarter, '+invWhen(r):f==="Yearly"?'paid '+invWhen(r):'one-time, in '+invMonths(r)[0];
+    var s=(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':''))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+r12+'% p.a.';
     if(r.cur!=="EUR") s+=' <span class="faint">(≈ '+money(eur(end,r.cur))+')</span>';
     return s;
   }
@@ -804,7 +818,7 @@ function calcText(list,r,C){
 
 function sum(k,x,s){return '<div class="sum"><div class="k">'+k+'</div><div class="x num">'+x+'</div>'+(s?'<div class="s">'+s+'</div>':'')+'</div>';}
 function summaryHTML(which,C){
-  if(which==="investments") return sum("Portfolio value",money(C.inv),"1 Jan "+YEAR+"")+sum("Investing monthly",money(C.invMonthly),money(C.invMonthly*12)+" in "+YEAR+"")+sum("Projected 31 Dec",money(C.pts[12].inv),"at "+n(state.settings.returnPct)+"% p.a.");
+  if(which==="investments") return sum("Portfolio value",money(C.inv),"1 Jan "+YEAR+"")+sum("Investing in "+YEAR,money(C.invMonthly*12),money(C.invMonthly)+" a month on average")+sum("Projected 31 Dec",money(C.pts[12].inv),"at "+n(state.settings.returnPct)+"% p.a.");
   if(which==="cash"){var mo=C.fixedM+C.varM+C.emiM; var cover=mo>0?(C.cash/mo):0; return sum("Bank balances",money(C.cash))+sum("Fixed deposits",money(C.fd),"value on 1 Jan "+YEAR+"")+sum("Cash runway",(mo>0?(Math.round(cover*10)/10)+" months":"—"),"of costs + EMIs covered");}
   if(which==="budget") return sum("Income",money(C.income),"per month")+sum("Fixed costs",money(C.fixedM),"monthly average")+sum("Variable costs",money(C.varM),"monthly avg, forecast")+sum("After costs",money(C.income-C.fixedM-C.varM),"before EMIs & investing");
   if(which==="variable"){var nm=C.varHas.filter(Boolean).length, dv=C.varActSum-C.varActBud, df=C.varFcY-C.varBudY;
@@ -871,6 +885,8 @@ function upcoming(C){
   state.trips.forEach(function(t){var mi=MONTHS.indexOf(t.month); if(mi>=0) ev.push({mi:mi,t:t.name||"Trip",s:n(t.days)+" days · ≈ "+money(eur(tripTotal(t),t.cur)),c:"var(--c-trav)",o:1});});
   state.fixed.forEach(function(f){if(f.freq==="Monthly") return; var due=Math.max(0,MONTHS.indexOf(f.dueMonth)), ms=f.freq==="Yearly"?[due]:[0,1,2,3].map(function(q){return (due+q*3)%12;});
     ms.forEach(function(mi){ev.push({mi:mi,t:f.name||"Bill",s:money(eur(f.amount,f.cur))+" due",c:"var(--c-fixed)",o:2});});});
+  state.investments.forEach(function(i){if(!i.active||n(i.monthly)<=0||(i.freq||"Monthly")==="Monthly") return;
+    for(var mi=0;mi<12;mi++){if(invInMonth(i,mi)>0) ev.push({mi:mi,t:"Invest: "+(i.product||"investment"),s:money(eur(i.monthly,i.cur))+" "+((i.freq==="One-time")?"one-time payment":(i.freq||"").toLowerCase()+" payment"),c:"var(--c-inv)",o:2});}});
   state.emis.forEach(function(e){if(n(e.outstanding)<=0) return; var sc=emiSchedule(e); if(sc.ok&&sc.months<=12) ev.push({mi:sc.months-1,t:"Last EMI: "+(e.name||"loan"),s:"frees "+money(eur(e.payment,e.cur))+" / month",c:"var(--c-emi)",o:3});});
   state.fds.forEach(function(f){var m=parseDate(f.maturity); if(m&&m.getFullYear()===YEAR) ev.push({mi:m.getMonth(),t:(f.bank||"Fixed deposit")+" matures",s:"≈ "+money(eur(fdValueAt(f,m),f.cur)),c:"var(--pos)",o:4});});
   return ev.sort(function(a,b){return a.mi-b.mi||a.o-b.o;});
@@ -958,8 +974,20 @@ function renderPanel(){
   refreshDerived(C);
 }
 
+function syncInvFields(){
+  state.investments.forEach(function(r){
+    var pm=document.getElementById("f-investments-"+r.id+"-payMonth"); if(!pm) return;
+    var f=r.freq||"Monthly", wrap=pm.closest(".f"), lab=wrap.querySelector("label");
+    wrap.hidden=(f==="Monthly");
+    lab.textContent=f==="Quarterly"?"First payment in":"Paid in";
+    var amt=document.getElementById("f-investments-"+r.id+"-monthly");
+    if(amt){var al=amt.closest(".f").querySelector("label"); al.textContent=f==="Monthly"?"Monthly amount":f==="Quarterly"?"Amount per quarter":f==="Yearly"?"Yearly amount":"One-time amount";}
+    var act=document.getElementById("f-investments-"+r.id+"-active");
+    if(act){act.closest(".f").querySelector("label").textContent=f==="One-time"?"Will be paid":"Plan running";}
+  });
+}
 function refreshDerived(C){
-  C=C||compute();
+  C=C||compute(); syncInvFields();
   renderStats(C);
   document.querySelectorAll("[data-sum]").forEach(function(el){el.innerHTML=summaryHTML(el.dataset.sum,C);});
   document.querySelectorAll("[data-donut]").forEach(function(el){
@@ -1092,7 +1120,7 @@ function suggestions(C){
   // 7. paused plans
   var paused=state.investments.filter(function(i){return !i.active&&n(i.monthly)>0;});
   if(paused.length){
-    var cost=paused.reduce(function(s,i){return s+eur(i.monthly,i.cur);},0);
+    var cost=paused.reduce(function(s,i){return s+eur(invPerYear(i),i.cur)/12;},0);
     out.push({lvl:"tip",t:paused.length+" investment plan"+(paused.length>1?"s are":" is")+" paused",b:"Restarting "+esc(paused.map(function(i){return i.product||"it";}).join(", "))+" would take "+money(cost)+" a month. "+(C.surplus>=cost?"Your average surplus of "+money(C.surplus)+" would cover it.":"Your current surplus of "+money(C.surplus)+" wouldn’t cover it yet.")});
   }
 
