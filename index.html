@@ -418,6 +418,16 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .yr-del.armed{background:var(--neg);color:#fff}
 .share-info{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;flex-basis:100%;font-size:13px}
 .share-info .warn{color:var(--warn)}
+.pill.act{background:rgba(96,165,250,.18);color:#bfdbfe}
+table.fc.hist{min-width:0;width:100%}
+.fc.hist td:first-child{white-space:normal;max-width:140px}
+.bal-month{width:auto;min-height:38px;padding:6px 30px 6px 12px}
+.bal-rows{display:flex;flex-direction:column;gap:10px}
+.bal-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,160px);gap:12px;align-items:center}
+.bal-row label{display:flex;flex-direction:column;gap:1px;min-width:0}
+.bal-row label b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bal-row label small{font-size:12px;color:var(--faint)}
+.bal-row input{text-align:right}
 .status span{white-space:nowrap}
 @media (max-width:430px){
   .topbar{gap:8px}.tb-right{gap:6px;min-width:0}
@@ -513,7 +523,7 @@ var LISTS={
     {k:"purpose",l:"Used for",t:"text",ph:"e.g. Salary, emergency fund"},
     {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
     {k:"balance",l:"Balance on 1 Jan "+YEAR+"",t:"num"}],
-    blank:function(){return {name:"",purpose:"",cur:"EUR",balance:0};}},
+    blank:function(){return {name:"",purpose:"",cur:"EUR",balance:0,mb:[null,null,null,null,null,null,null,null,null,null,null,null]};}},
   fds:{noun:"fixed deposit",empty:"No fixed deposits. Add one if you lock money away for a fixed term.",fields:[
     {k:"bank",l:"Bank / product",t:"text",ph:"e.g. Raisin 12-month FD",wide:true},
     {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
@@ -634,6 +644,8 @@ function emiSchedule(e){
   while(bal>0.005&&months<1200){var i=bal*r; interest+=i; bal=bal+i-Math.min(pay,bal+i); months++;}
   return {months:months,interest:interest,ok:true};
 }
+function bankAt(b,k){for(var j=k;j>=1;j--){var v=b.mb&&b.mb[j]; if(v!==null&&v!==undefined&&v!=="") return {v:n(v),k:j};} return {v:n(b.balance),k:0};}
+function bankHas(b,k){var v=b.mb&&b.mb[k]; return k===0||(v!==null&&v!==undefined&&v!=="");}
 function projCost(p){return n(p.actual)>0?n(p.actual):n(p.estimate);}
 function projSpan(p){var a=Math.max(0,MONTHS.indexOf(p.start)), b=Math.max(0,MONTHS.indexOf(p.end)); if(b<a) b=a; return [a,b];}
 function projByMonth(p){var m=[0,0,0,0,0,0,0,0,0,0,0,0], c=projCost(p), sp=projSpan(p);
@@ -670,6 +682,13 @@ function compute(){
   var inv=0, invMonthly=0, byType={};
   state.investments.forEach(function(i){var v=eur(i.value,i.cur); inv+=v; if(i.active) invMonthly+=eur(invPerYear(i),i.cur)/12; byType[i.type]=(byType[i.type]||0)+v;});
   var cash=0; state.banks.forEach(function(b){cash+=eur(b.balance,b.cur);});
+  var bankStart=[], latestK=0;
+  for(var bk=0;bk<12;bk++){
+    var any=bk===0||state.banks.some(function(b){return bankHas(b,bk);});
+    if(!any){bankStart.push(null); continue;}
+    var tot=0; state.banks.forEach(function(b){tot+=eur(bankAt(b,bk).v,b.cur);}); bankStart.push(tot); latestK=bk;
+  }
+  var cashNow=bankStart[latestK];
   var fd=0; state.fds.forEach(function(f){fd+=eur(fdValueAt(f,START),f.cur);});
   var fixedM=0, fixedByCat={}; state.fixed.forEach(function(f){var v=eur(f.amount,f.cur)/freqDiv(f.freq); fixedM+=v; var fc=(f.category||"").trim()||"Other"; fixedByCat[fc]=(fixedByCat[fc]||0)+v;});
   var varByCat={}, varBudM=[0,0,0,0,0,0,0,0,0,0,0,0], varFcM=[0,0,0,0,0,0,0,0,0,0,0,0], varActM=[0,0,0,0,0,0,0,0,0,0,0,0], varHas=MONTHS.map(function(){return false;}), varActSum=0, varActBud=0, varLines=[];
@@ -703,13 +722,14 @@ function compute(){
     var varAct=varFcM[mi];
     var proj=projByM[mi];
     var net=income-fixedAct-varAct-contrib-paid-trav-proj;
-    c+=net;
-    rows.push({mi:mi,income:income,fixed:fixedAct,variable:varAct,emi:paid,invest:contrib,travel:trav,proj:proj,net:net,bal:c});
+    var anchor=mi>0&&bankStart[mi]!==null&&state.banks.length>0, startBal=anchor?bankStart[mi]:c, drift=anchor?bankStart[mi]-c:0;
+    c=startBal+net;
+    rows.push({anchor:anchor,startBal:startBal,drift:drift,mi:mi,income:income,fixed:fixedAct,variable:varAct,emi:paid,invest:contrib,travel:trav,proj:proj,net:net,bal:c});
     pts.push({inv:invT,fd:fdT,cash:c,emi:emiT,nw:invT+fdT+c-emiT,date:at});
   }
   var savingsRate=income>0?(invMonthly+Math.max(0,surplus))/income*100:0;
   var low={bal:cash,mi:-1}; rows.forEach(function(r){if(r.bal<low.bal) low={bal:r.bal,mi:r.mi};});
-  return {income:income,inv:inv,invMonthly:invMonthly,cash:cash,fd:fd,fixedM:fixedM,varM:varM,emiOut:emiOut,emiM:emiM,outflow:outflow,surplus:surplus,nw:nw,pts:pts,byType:byType,fixedByCat:fixedByCat,varByCat:varByCat,savingsRate:savingsRate,share:share,travelTotal:travelTotal,travelM:travelM,travelByMonth:travelByMonth,projTotal:projTotal,projEst:projEst,projM:projM,projByM:projByM,rows:rows,low:low,varBudM:varBudM,varFcM:varFcM,varActM:varActM,varHas:varHas,varActSum:varActSum,varActBud:varActBud,varFcY:varFcY,varBudY:varBudY,varLines:varLines};
+  return {income:income,inv:inv,invMonthly:invMonthly,cash:cash,fd:fd,fixedM:fixedM,varM:varM,emiOut:emiOut,emiM:emiM,outflow:outflow,surplus:surplus,nw:nw,pts:pts,byType:byType,fixedByCat:fixedByCat,varByCat:varByCat,savingsRate:savingsRate,share:share,bankStart:bankStart,latestK:latestK,cashNow:cashNow,travelTotal:travelTotal,travelM:travelM,travelByMonth:travelByMonth,projTotal:projTotal,projEst:projEst,projM:projM,projByM:projByM,rows:rows,low:low,varBudM:varBudM,varFcM:varFcM,varActM:varActM,varHas:varHas,varActSum:varActSum,varActBud:varActBud,varFcY:varFcY,varBudY:varBudY,varLines:varLines};
 }
 
 /* ---------- rendering ---------- */
@@ -794,7 +814,7 @@ function cellHTML(list,r,f){
 function shortCalc(list,r,C){
   var r12=n(state.settings.returnPct);
   if(list==="investments"){var end=n(r.value),rr=invRate(r); for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i); return moneyCur(end,r.cur);}
-  if(list==="banks") return money(eur(r.balance,r.cur));
+  if(list==="banks"){var la=bankAt(r,C?C.latestK:0); return money(eur(la.v,r.cur))+(la.k>0?' <span class="faint">1 '+MONTHS[la.k]+'</span>':'');}
   if(list==="fds"){var m=parseDate(r.maturity),s0=parseDate(r.start); return (m&&s0&&m>s0)?moneyCur(fdValueAt(r,m),r.cur):'—';}
   if(list==="fixed") return money(eur(n(r.amount)/freqDiv(r.freq),r.cur));
   if(list==="projects") return projCost(r)>0?money(eur(projCost(r),r.cur))+(n(r.actual)>0?'':' <span class="faint">est.</span>'):'—';
@@ -804,7 +824,7 @@ function shortCalc(list,r,C){
   return '';
 }
 var DERIVED_S={fixed:"€ / mo",trips:"Total €",variable:"€ / yr"};
-var DERIVED={investments:"By 31 Dec",banks:"In €",fds:"At maturity",fixed:"Per month (€)",trips:"Total (€)",projects:"Counts as (€)",variable:"Year budget (€)",emis:"Paid off by"};
+var DERIVED={investments:"By 31 Dec",banks:"Latest (€)",fds:"At maturity",fixed:"Per month (€)",trips:"Total (€)",projects:"Counts as (€)",variable:"Year budget (€)",emis:"Paid off by"};
 function editorHTML(list,r){
   var L=LISTS[list];
   return '<div class="row editor" data-row="'+r.id+'"><button class="del" type="button" data-del="'+list+'" data-rid="'+r.id+'" aria-label="Remove this '+L.noun+'">'+ICONS.x+'</button><div class="fields">'+L.fields.map(function(f){return fieldHTML(list,r,f);}).join("")+'</div>'+(list==="fds"?termsHTML(r):'')+'<div class="calc" data-calc="'+list+'" data-rid="'+r.id+'"></div>'+
@@ -845,7 +865,7 @@ function calcText(list,r,C){
     if(extra.length) s+='<br><span class="faint">'+extra.join(' · ')+'</span>';
     return s;
   }
-  if(list==="banks"){return r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate':'Counted as cash in your net worth';}
+  if(list==="banks"){var la=bankAt(r,C.latestK); return (la.k>0?'Latest balance <b>'+moneyCur(la.v,r.cur)+'</b> on 1 '+MONTHS[la.k]+(r.cur!=="EUR"?' (≈ '+money(eur(la.v,r.cur))+')':'')+'. ':(r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate. ':''))+'Update it each month under Monthly balances.';}
   if(list==="fds"){
     var m=parseDate(r.maturity), s0=parseDate(r.start);
     if(!m||!s0) return 'Add start and maturity dates to see what this pays out';
@@ -893,7 +913,7 @@ function calcText(list,r,C){
 function sum(k,x,s){return '<div class="sum"><div class="k">'+k+'</div><div class="x num">'+x+'</div>'+(s?'<div class="s">'+s+'</div>':'')+'</div>';}
 function summaryHTML(which,C){
   if(which==="investments") return sum("Portfolio value",money(C.inv),"1 Jan "+YEAR+"")+sum("Investing in "+YEAR,money(C.invMonthly*12),money(C.invMonthly)+" a month on average");
-  if(which==="cash"){var mo=C.fixedM+C.varM+C.emiM; var cover=mo>0?(C.cash/mo):0; return sum("Bank balances",money(C.cash))+sum("Fixed deposits",money(C.fd),"value on 1 Jan "+YEAR+"")+sum("Cash runway",(mo>0?(Math.round(cover*10)/10)+" months":"—"),"of costs + EMIs covered");}
+  if(which==="cash"){var mo=C.fixedM+C.varM+C.emiM; var cover=mo>0?(C.cashNow/mo):0; return sum("Bank balances",money(C.cashNow),"on 1 "+MONTHS[C.latestK]+" "+YEAR+(C.latestK>0?" (latest update)":""))+sum("Fixed deposits",money(C.fd),"value on 1 Jan "+YEAR+"")+sum("Cash runway",(mo>0?(Math.round(cover*10)/10)+" months":"—"),"of costs + EMIs covered");}
   if(which==="budget") return sum("Income",money(C.income),"per month")+sum("Fixed costs",money(C.fixedM),"monthly average")+sum("Variable costs",money(C.varM),"monthly avg, forecast")+sum("After costs",money(C.income-C.fixedM-C.varM),"before EMIs & investing");
   if(which==="variable"){var nm=C.varHas.filter(Boolean).length, dv=C.varActSum-C.varActBud, df=C.varFcY-C.varBudY;
     return sum("Budget for "+YEAR+"",money(C.varBudY),money(C.varBudY/12)+" a month")+
@@ -948,6 +968,35 @@ function sortInv(rows){
     else if(k!=="name"){var c=txt(a[k]).localeCompare(txt(b[k])); if(c) return c; var d2=eur(invEnd(b),b.cur)-eur(invEnd(a),a.cur); if(Math.abs(d2)>1e-9) return d2;}
     return txt(a.product).localeCompare(txt(b.product));
   });
+}
+var balMonth=(function(){var d=new Date(); return d.getFullYear()===YEAR?d.getMonth():(+pref("bal-month","0",["0","1","2","3","4","5","6","7","8","9","10","11"]));})();
+function balCardHTML(C){
+  if(!state.banks.length) return '';
+  var k=balMonth, rows=state.banks.map(function(b){
+    var has=bankHas(b,k), v=k===0?n(b.balance):(has?n(b.mb[k]):""), prev=bankAt(b,Math.max(0,k-1));
+    return '<div class="bal-row"><label for="mb-'+b.id+'"><b>'+esc(b.name||"Account")+'</b><small>'+esc(b.cur)+(k>0?' · last: '+moneyCur(prev.v,b.cur)+' on 1 '+MONTHS[prev.k]:'')+'</small></label>'+
+      '<input type="number" step="any" inputmode="decimal" id="mb-'+b.id+'" data-mb="'+b.id+'" value="'+(v===""?"":v)+'" placeholder="'+(k>0?'Not updated':'0')+'"></div>';
+  }).join("");
+  return card("Monthly balances","Enter what’s actually in each account on the 1st. The forecast restarts from these numbers",
+    '<div class="inline-set" style="margin-bottom:14px"><label for="bal-month">Balance on 1</label><select id="bal-month" class="bal-month">'+MONTHS.map(function(m,i){return '<option value="'+i+'"'+(i===k?' selected':'')+'>'+m+' '+YEAR+'</option>';}).join("")+'</select></div>'+
+    '<div class="bal-rows">'+rows+'</div><p class="note" id="bal-hint" style="margin-top:12px"></p>'+
+    '<div class="tbl-wrap" style="margin-top:14px" data-balhist></div>');
+}
+function balHintText(C){
+  var k=balMonth; if(k===0) return "1 January is your starting balance. Pick a later month to log an update.";
+  var r=C.rows[k-1], nx=C.rows[k], have=state.banks.some(function(b){return bankHas(b,k);});
+  var fc=r?r.bal:0; if(nx&&nx.anchor) fc=nx.startBal-nx.drift;
+  if(!have) return "Nothing entered for 1 "+MONTHS[k]+" yet. The forecast expects about "+money(fc)+" across your accounts then.";
+  var d=C.bankStart[k]-fc;
+  return "Entered "+money(C.bankStart[k])+" for 1 "+MONTHS[k]+". The forecast expected "+money(fc)+", so you’re "+(Math.abs(d)<0.5?"exactly on track":(d>0?'<span class="pos">'+money(d)+' ahead</span>':'<span class="neg">'+money(-d)+' behind</span>'))+". Accounts left blank keep their last balance.";
+}
+function balHistHTML(C){
+  var ks=[]; for(var k=0;k<12;k++) if(C.bankStart[k]!==null) ks.push(k);
+  if(ks.length<2) return '';
+  var head='<tr><th>Account</th>'+ks.map(function(k){return '<th>1 '+MONTHS[k]+'</th>';}).join("")+'</tr>';
+  var body=state.banks.map(function(b){return '<tr><td>'+esc(b.name||"Account")+'</td>'+ks.map(function(k){return '<td>'+(bankHas(b,k)?moneyCur(k===0?b.balance:b.mb[k],b.cur):'<span class="faint">'+moneyCur(bankAt(b,k).v,b.cur)+'</span>')+'</td>';}).join("")+'</tr>';}).join("");
+  var tot='<tr><td><b>Total (€)</b></td>'+ks.map(function(k){return '<td><b>'+money(C.bankStart[k])+'</b></td>';}).join("")+'</tr>';
+  return '<table class="fc hist"><thead>'+head+'</thead><tbody>'+body+tot+'</tbody></table><p class="note" style="margin-top:8px">Grey amounts were carried over because that account wasn’t updated.</p>';
 }
 function invControlsHTML(){
   var opt=function(list,cur){return list.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===cur?' selected':'')+'>'+x[1]+'</option>';}).join("");};
@@ -1030,9 +1079,9 @@ function overviewHTML(C){
     '<div class="flow">'+seg.map(function(s){return '<i style="--c:'+s[2]+'"></i><span>'+s[0]+'</span><span class="a">'+money(s[1])+'</span><span class="p">'+(inc>0?Math.round(s[1]/inc*100)+"%":"")+'</span>';}).join("")+'</div>'+
     (C.surplus<0?'<p class="note" style="margin-top:12px;color:var(--neg)">You’re spending '+money(-C.surplus)+' more than you earn each month.</p>':''));
   var pal=["#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316"];
-  var banks=state.banks.slice().sort(function(a,b){return eur(b.balance,b.cur)-eur(a.balance,a.cur);});
-  var acct=card("Accounts",money(C.cash)+" cash",banks.length?'<div class="acct">'+banks.map(function(b,i){var nm=b.name||"Account";return '<div class="acct-row"><span class="av" style="--c:'+pal[i%pal.length]+'">'+esc(nm.trim().slice(0,2).toUpperCase())+'</span><div class="nm"><b>'+esc(nm)+'</b><span>'+esc(b.purpose||b.cur)+'</span></div><span class="amt">'+moneyCur(b.balance,b.cur)+'</span></div>';}).join("")+'</div>':'<div class="empty">Add bank accounts under Cash & deposits</div>');
-  var monthlyCosts=C.fixedM+C.varM+C.emiM, efm=monthlyCosts>0?C.cash/monthlyCosts:0, debtP=C.emiOut>0?(C.emiOut-C.pts[12].emi)/C.emiOut:0;
+  var LK=C.latestK, banks=state.banks.slice().sort(function(a,b){return eur(bankAt(b,LK).v,b.cur)-eur(bankAt(a,LK).v,a.cur);});
+  var acct=card("Accounts",money(C.cashNow)+" cash · 1 "+MONTHS[C.latestK],banks.length?'<div class="acct">'+banks.map(function(b,i){var nm=b.name||"Account";return '<div class="acct-row"><span class="av" style="--c:'+pal[i%pal.length]+'">'+esc(nm.trim().slice(0,2).toUpperCase())+'</span><div class="nm"><b>'+esc(nm)+'</b><span>'+esc(b.purpose||b.cur)+'</span></div><span class="amt">'+moneyCur(bankAt(b,LK).v,b.cur)+'</span></div>';}).join("")+'</div>':'<div class="empty">Add bank accounts under Cash & deposits</div>');
+  var monthlyCosts=C.fixedM+C.varM+C.emiM, efm=monthlyCosts>0?C.cashNow/monthlyCosts:0, debtP=C.emiOut>0?(C.emiOut-C.pts[12].emi)/C.emiOut:0;
   var goals=card("Goals",""+YEAR+" targets",'<div class="goals">'+
     '<div class="goal">'+ring(C.savingsRate/20,"#34d399",Math.round(C.savingsRate)+"%")+'<div><b>Savings rate</b><span>Target 20% of income</span></div></div>'+
     '<div class="goal">'+ring(efm/6,"#60a5fa",(Math.round(efm*10)/10)+"m")+'<div><b>Emergency cushion</b><span>Target 6 months of costs</span></div></div>'+
@@ -1055,7 +1104,7 @@ function renderPanel(){
   $("stats").hidden=(tab!=="overview");
   if(tab==="overview") h=overviewHTML(C);
   else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Where your money is invested","Split your portfolio by product, type, country and more",invControlsHTML()+'<div data-invpie></div>')+card("Investments & monthly plans","Values in each product’s own currency",invSortHTML()+listHTML("investments"));
-  else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+card("Bank balances","Current, savings and overnight accounts",listHTML("banks"))+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
+  else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+card("Bank balances","Current, savings and overnight accounts",listHTML("banks"))+balCardHTML(C)+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
   else if(tab==="budget") h='<div class="summary" data-sum="budget"></div>'+
     card("Income","Net amounts that land in your account each month",
       '<div class="fields" style="padding-right:0"><div class="f"><label for="in-salary">Monthly net salary (€)</label><input type="number" step="any" inputmode="decimal" id="in-salary" data-scope="income" data-k="salary" value="'+(n(state.income.salary)||"")+'" placeholder="0"></div><div class="f"><label for="in-other">Other monthly income (€)</label><input type="number" step="any" inputmode="decimal" id="in-other" data-scope="income" data-k="other" value="'+(n(state.income.other)||"")+'" placeholder="0"></div></div>')+
@@ -1117,6 +1166,8 @@ function refreshDerived(C){
   document.querySelectorAll("[data-sum]").forEach(function(el){el.innerHTML=summaryHTML(el.dataset.sum,C);});
   var si=$("share-info"); if(si){var tot=state.variable.length, sh=state.variable.filter(function(f){return f.shared;}).length, pc=n(state.settings.sharePct);
     si.innerHTML=!tot?'':(sh===tot?'<span class="pos">Applies to all '+tot+' line'+(tot>1?'s':'')+'</span>':'<span class="warn">Applies to '+sh+' of '+tot+' lines. The other '+(tot-sh)+' count in full</span><button type="button" class="btn sm" data-shareall>Mark all as shared</button>');}
+  var bh=$("bal-hint"); if(bh) bh.innerHTML=balHintText(C);
+  document.querySelectorAll("[data-balhist]").forEach(function(el){var h=balHistHTML(C); if(el.dataset.sig===h) return; el.dataset.sig=h; el.innerHTML=h;});
   document.querySelectorAll("[data-invpie]").forEach(function(el){var h=invPie(); if(el.dataset.sig===h) return; el.dataset.sig=h; el.innerHTML=h;});
   document.querySelectorAll("[data-donut]").forEach(function(el){
     var sig=JSON.stringify(C.varByCat); if(el.dataset.sig===sig) return; el.dataset.sig=sig;
@@ -1226,9 +1277,9 @@ function suggestions(C){
 
   // 4. emergency fund
   if(monthlyCosts>0){
-    var mo=C.cash/monthlyCosts;
+    var mo=C.cashNow/monthlyCosts;
     if(mo<3) out.push({lvl:"warn",t:"Cash covers "+(Math.round(mo*10)/10)+" months of costs",b:"A common guideline is 3–6 months of essential costs in easy-access savings, about <b>"+money(monthlyCosts*3)+"–"+money(monthlyCosts*6)+"</b> for you."});
-    else if(mo>9) out.push({lvl:"tip",t:"You hold about "+Math.round(mo)+" months of costs in cash",b:"Money beyond a 6-month cushion (roughly <b>"+money(C.cash-monthlyCosts*6)+"</b>) earns little in a current account. A fixed deposit, overnight account or your investment plans could fit, depending on when you’ll need it."});
+    else if(mo>9) out.push({lvl:"tip",t:"You hold about "+Math.round(mo)+" months of costs in cash",b:"Money beyond a 6-month cushion (roughly <b>"+money(C.cashNow-monthlyCosts*6)+"</b>) earns little in a current account. A fixed deposit, overnight account or your investment plans could fit, depending on when you’ll need it."});
     else out.push({lvl:"good",t:"Emergency cushion of "+(Math.round(mo*10)/10)+" months",b:"Within the usual 3–6+ month range for essential costs."});
   }
 
@@ -1294,7 +1345,7 @@ function renderForecast(C){
       Object.keys(tot).forEach(function(k){tot[k]+=r[k];});
       var cls=r.bal<0?"bad":(buf>0&&r.bal<buf?"warn":"");
       var pill=r.bal<0?'<span class="pill bad">Overdrawn</span>':(cls==="warn"?'<span class="pill warn">Below buffer</span>':'');
-      return '<tr class="'+cls+'"><td>'+MONTHS[r.mi]+'</td><td>'+money(r.income)+'</td><td>'+money(r.fixed)+'</td><td>'+money(r.variable)+'</td><td>'+money(r.emi)+'</td><td>'+money(r.invest)+'</td><td>'+(r.travel?money(r.travel):'<span class="faint">–</span>')+'</td><td>'+(r.proj?money(r.proj):'<span class="faint">–</span>')+'</td><td class="'+(r.net<0?"neg":"pos")+'">'+(r.net>=0?"+":"")+money(r.net)+'</td><td class="bal'+(r.bal<0?" neg":"")+'">'+money(r.bal)+pill+'</td></tr>';
+      return '<tr class="'+cls+'"><td>'+MONTHS[r.mi]+(r.anchor?'<span class="pill act" title="Starts from the bank balance you entered for 1 '+MONTHS[r.mi]+'">updated</span>':'')+'</td><td>'+money(r.income)+'</td><td>'+money(r.fixed)+'</td><td>'+money(r.variable)+'</td><td>'+money(r.emi)+'</td><td>'+money(r.invest)+'</td><td>'+(r.travel?money(r.travel):'<span class="faint">–</span>')+'</td><td>'+(r.proj?money(r.proj):'<span class="faint">–</span>')+'</td><td class="'+(r.net<0?"neg":"pos")+'">'+(r.net>=0?"+":"")+money(r.net)+'</td><td class="bal'+(r.bal<0?" neg":"")+'">'+money(r.bal)+pill+'</td></tr>';
     }).join("");
     t.innerHTML='<table class="fc"><thead><tr><th>Month</th><th>Income</th><th>Fixed</th><th>Variable</th><th>EMIs</th><th>Investing</th><th>Travel</th><th>Projects</th><th>Net</th><th>Balance</th></tr></thead><tbody>'+
       '<tr><td class="faint">1 Jan</td><td colspan="8" class="faint" style="text-align:left">Starting cash across your bank accounts</td><td class="bal">'+money(C.cash)+'</td></tr>'+body+
@@ -1449,8 +1500,16 @@ function onField(e){
 $("panel").addEventListener("input",onField);
 $("panel").addEventListener("change",function(e){if(e.target.tagName==="SELECT"||e.target.type==="checkbox"||e.target.type==="date") onField(e);});
 
+$("panel").addEventListener("input",function(e){
+  var t=e.target; if(!t.dataset||!t.dataset.mb) return;
+  var b=state.banks.find(function(x){return x.id===t.dataset.mb;}); if(!b) return;
+  if(!Array.isArray(b.mb)) b.mb=[null,null,null,null,null,null,null,null,null,null,null,null];
+  if(balMonth===0) b.balance=t.value===""?0:n(t.value); else b.mb[balMonth]=t.value===""?null:n(t.value);
+  changed(); refreshDerived();
+});
 $("panel").addEventListener("change",function(e){
   var t=e.target;
+  if(t.id==="bal-month"){balMonth=+t.value; setPref("bal-month",String(balMonth)); renderPanel(); return;}
   if(t.id==="inv-split"){invSplit=t.value; setPref("inv-split",invSplit); var pe=document.querySelector("[data-invpie]"); if(pe){pe.dataset.sig=""; refreshDerived();} }
   else if(t.id==="inv-sort"){invSort=t.value; setPref("inv-sort",invSort); renderPanel();}
 });
