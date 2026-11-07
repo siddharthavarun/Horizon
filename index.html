@@ -436,6 +436,38 @@ table.fc.hist{min-width:0;width:100%}
   .yr-btn{gap:6px;padding-right:10px}
   .avatar{width:34px;height:34px}
 }
+/* app lock */
+body.is-locked{overflow:hidden}
+.lock{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 24px) 16px calc(env(safe-area-inset-bottom,0px) + 24px);background:rgba(18,14,12,.94);-webkit-backdrop-filter:blur(40px) saturate(120%);backdrop-filter:blur(40px) saturate(120%)}
+.lock-card{width:min(320px,100%);display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.lock-ico{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#60a5fa,#8b5cf6);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.lock-ico svg{width:26px;height:26px;color:#fff}
+.lock h2{font-size:22px;font-weight:600}
+.lock-msg{margin:-6px 0 0;font-size:14px;color:var(--muted);min-height:20px}
+.lock-msg.bad{color:var(--neg)}
+.lock-dots{display:flex;gap:14px;min-height:16px}
+.lock-dots i{width:14px;height:14px;border-radius:50%;border:1.5px solid rgba(255,255,255,.55);transition:background .15s}
+.lock-dots i.on{background:#fff;border-color:#fff}
+.lock-pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px 22px;margin-top:8px}
+.lk{appearance:none;width:72px;height:72px;border-radius:50%;border:1px solid var(--hair);background:rgba(255,255,255,.09);color:#fff;font:500 28px var(--body);cursor:pointer;display:grid;place-items:center;transition:background .15s}
+.lk:active{background:rgba(255,255,255,.24)}
+.lk:focus-visible,.lock-forgot:focus-visible{outline:2px solid var(--pos);outline-offset:2px}
+.lk svg{width:28px;height:28px}
+.lk-del,.lk-bio{background:transparent;border-color:transparent}
+.lk-bio[hidden]{display:block!important;visibility:hidden}
+.lock-forgot{appearance:none;border:0;background:transparent;color:var(--muted);font:500 13.5px var(--body);padding:10px;cursor:pointer;border-radius:10px}
+.lock-forgot.armed{background:var(--neg);color:#fff}
+.lock.cover .lock-msg,.lock.cover .lock-dots,.lock.cover .lock-pad,.lock.cover .lock-forgot{visibility:hidden}
+.lock.shake .lock-dots{animation:lockshake .4s}
+@keyframes lockshake{20%,60%{transform:translateX(-10px)}40%,80%{transform:translateX(10px)}}
+@media (prefers-reduced-motion:reduce){.lock.shake .lock-dots{animation:none}}
+@media (max-height:640px){.lock-pad{grid-template-columns:repeat(3,62px);gap:10px 18px}.lk{width:62px;height:62px;font-size:24px}.lock-ico{display:none}}
+.lock-set{display:flex;flex-direction:column;gap:12px}
+.lock-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.lock-row span{display:flex;flex-direction:column}
+.lock-row small{font-size:12.5px;color:var(--faint)}
+.lock-row label{font-size:14px;color:var(--muted)}
+.lock-more summary{cursor:pointer;color:var(--muted);font-size:14px;padding:6px 0}
 </style>
 </head>
 <body>
@@ -1134,12 +1166,14 @@ function renderPanel(){
       '<div class="f"><label for="s-buf">Safety buffer to keep in cash (€)</label><input type="number" step="any" inputmode="decimal" id="s-buf" data-scope="settings" data-k="buffer" value="'+(n(state.settings.buffer)||"")+'" placeholder="0"></div>'+
       '<div class="f"><label for="s-od">Overdraft limit (Dispo, €)</label><input type="number" step="any" inputmode="decimal" id="s-od" data-scope="settings" data-k="overdraft" value="'+(n(state.settings.overdraft)||"")+'" placeholder="0"></div></div>'+
       '<p class="note" style="margin-top:14px">Exchange rates are your own inputs and don’t update automatically. Totals are shown in euros.</p>')+
+    card("App lock","Passcode and Face ID",'<div id="lock-card"></div>')+
     card("Your data",storeNote(),'<div class="data-actions"><button class="btn primary" type="button" id="b-export">Export backup</button><label class="btn file-btn" for="b-import">Import backup<input type="file" id="b-import" accept="application/json,.json"></label><button class="btn danger" type="button" id="b-reset">Clear all figures</button></div><p class="note" id="data-msg" style="margin-top:12px">Your figures never leave this device unless you export them. Keep a backup in Files or iCloud Drive, and use it to move to a new device.</p>');
   el.innerHTML=h;
   if(tab==="settings"){
     armButton($("b-reset"),"Clear everything?",function(){var s=state.settings;state=blankState();state.settings=s;changed();renderAll();});
     $("b-export").onclick=exportBackup;
     $("b-import").onchange=importBackup;
+    wireLockCard();
   }
   refreshDerived(C);
 }
@@ -1659,6 +1693,145 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("yr-menu
 try{localStorage.setItem(YEARS_KEY,JSON.stringify(YEARS)); localStorage.setItem(YEAR_KEY,String(YEAR));}catch(e){}
 setYearLabels();
 
+/* ---------- app lock: passcode + Face ID (a privacy screen; figures are not encrypted) ---------- */
+var LOCK_KEY="fp-lock";
+function lockCfg(){try{var c=JSON.parse(localStorage.getItem(LOCK_KEY)||"null"); return c&&c.on&&c.hash&&c.salt?c:null;}catch(e){return null;}}
+function saveLock(c){try{if(c) localStorage.setItem(LOCK_KEY,JSON.stringify(c)); else localStorage.removeItem(LOCK_KEY); return true;}catch(e){return false;}}
+function b64(buf){var a=new Uint8Array(buf),s=""; for(var i=0;i<a.length;i++) s+=String.fromCharCode(a[i]); return btoa(s);}
+function unb64(s){var b=atob(s),a=new Uint8Array(b.length); for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i); return a.buffer;}
+function rnd(n){var a=new Uint8Array(n); crypto.getRandomValues(a); return a;}
+function canCrypto(){return !!(window.crypto&&crypto.subtle&&window.TextEncoder);}
+async function hashPin(pin,salt){
+  var k=await crypto.subtle.importKey("raw",new TextEncoder().encode(pin),"PBKDF2",false,["deriveBits"]);
+  return b64(await crypto.subtle.deriveBits({name:"PBKDF2",salt:unb64(salt),iterations:150000,hash:"SHA-256"},k,256));
+}
+async function bioAvailable(){try{return !!(window.PublicKeyCredential&&PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());}catch(e){return false;}}
+async function bioRegister(){
+  var cred=await navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:"Financial Planner",id:location.hostname},
+    user:{id:rnd(16),name:"planner-lock",displayName:"Planner lock"},pubKeyCredParams:[{type:"public-key",alg:-7},{type:"public-key",alg:-257}],
+    authenticatorSelection:{authenticatorAttachment:"platform",userVerification:"required",residentKey:"discouraged"},timeout:60000,attestation:"none"}});
+  return b64(cred.rawId);
+}
+async function bioCheck(id){
+  var a=await navigator.credentials.get({publicKey:{challenge:rnd(32),rpId:location.hostname,allowCredentials:[{type:"public-key",id:unb64(id),transports:["internal"]}],userVerification:"required",timeout:60000}});
+  return !!a;
+}
+var lockEl=null, pinBuf="", lockFails=0, lockWait=0, hiddenAt=0, isLocked=false, bioBusy=false;
+var LOCK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+var FACE_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 9.5v1M15 9.5v1M12 9.5V13h-1M9.5 16a3.5 3.5 0 0 0 5 0"/></svg>';
+function buildLock(){
+  if(lockEl) return lockEl;
+  lockEl=document.createElement("div"); lockEl.id="lock"; lockEl.className="lock"; lockEl.hidden=true;
+  lockEl.setAttribute("role","dialog"); lockEl.setAttribute("aria-modal","true"); lockEl.setAttribute("aria-labelledby","lock-title");
+  var keys=["1","2","3","4","5","6","7","8","9","bio","0","del"];
+  lockEl.innerHTML='<div class="lock-card"><div class="lock-ico">'+LOCK_SVG+'</div><h2 id="lock-title">Planner is locked</h2><p id="lock-msg" class="lock-msg" aria-live="polite">Enter your passcode</p><div class="lock-dots" id="lock-dots" aria-hidden="true"></div>'+
+    '<div class="lock-pad">'+keys.map(function(k){
+      if(k==="bio") return '<button type="button" class="lk lk-bio" id="lock-bio" aria-label="Unlock with Face ID" hidden>'+FACE_SVG+'</button>';
+      if(k==="del") return '<button type="button" class="lk lk-del" data-k="del" aria-label="Delete last digit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12z"/><path d="m16 9-5 6M11 9l5 6"/></svg></button>';
+      return '<button type="button" class="lk" data-k="'+k+'">'+k+'</button>';}).join("")+'</div>'+
+    '<button type="button" class="lock-forgot" id="lock-forgot">Forgot passcode?</button></div>';
+  document.body.appendChild(lockEl);
+  lockEl.querySelector(".lock-pad").addEventListener("click",function(e){var b=e.target.closest("[data-k]"); if(b) pinKey(b.dataset.k);});
+  $("lock-bio").addEventListener("click",function(){tryBio(true);});
+  var fg=$("lock-forgot"), armed=false, t;
+  fg.addEventListener("click",function(){
+    if(!armed){armed=true; fg.textContent="Tap again to erase all figures on this device"; fg.classList.add("armed"); t=setTimeout(function(){armed=false; fg.textContent="Forgot passcode?"; fg.classList.remove("armed");},5000); return;}
+    clearTimeout(t);
+    try{var ks=[]; for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i); if(k&&k.indexOf("fp")===0) ks.push(k);} ks.forEach(function(k){localStorage.removeItem(k);});}catch(err){}
+    location.reload();
+  });
+  document.addEventListener("keydown",function(e){if(!isLocked||lockEl.classList.contains("cover")) return; if(/^[0-9]$/.test(e.key)){pinKey(e.key); e.preventDefault();} else if(e.key==="Backspace"){pinKey("del"); e.preventDefault();}});
+  return lockEl;
+}
+function renderDots(){var c=lockCfg(), d=c?c.digits:4, h=""; for(var i=0;i<d;i++) h+='<i class="'+(i<pinBuf.length?"on":"")+'"></i>'; $("lock-dots").innerHTML=h;}
+function lockMsg(t,bad){var m=$("lock-msg"); m.textContent=t; m.classList.toggle("bad",!!bad);}
+function showLock(mode){
+  var c=lockCfg(); if(!c) return; buildLock();
+  isLocked=true; pinBuf=""; renderDots();
+  lockEl.classList.toggle("cover",mode==="cover"); lockEl.hidden=false; document.body.classList.add("is-locked");
+  if(mode!=="cover"){
+    lockMsg(Date.now()<lockWait?"Too many tries. Wait a moment.":"Enter your passcode");
+    bioAvailable().then(function(ok){var b=$("lock-bio"); b.hidden=!(ok&&c.bio); if(ok&&c.bio) tryBio(false);});
+  }
+}
+function unlock(){isLocked=false; pinBuf=""; lockFails=0; if(lockEl){lockEl.hidden=true; lockEl.classList.remove("cover","shake");} document.body.classList.remove("is-locked");}
+async function tryBio(fromTap){
+  var c=lockCfg(); if(!c||!c.bio||bioBusy) return; bioBusy=true;
+  try{ if(await bioCheck(c.bio)) unlock(); }
+  catch(e){ if(fromTap) lockMsg(e&&e.name==="NotAllowedError"?"Face ID was cancelled. Use your passcode.":"Face ID isn’t available. Use your passcode."); }
+  finally{ bioBusy=false; }
+}
+async function pinKey(k){
+  var c=lockCfg(); if(!c||!isLocked) return;
+  if(Date.now()<lockWait){lockMsg("Too many tries. Try again in "+Math.ceil((lockWait-Date.now())/1000)+" s",true); return;}
+  if(k==="del"){pinBuf=pinBuf.slice(0,-1); renderDots(); return;}
+  if(pinBuf.length>=c.digits) return;
+  pinBuf+=k; renderDots();
+  if(pinBuf.length<c.digits) return;
+  var ok=false; try{ok=(await hashPin(pinBuf,c.salt))===c.hash;}catch(e){}
+  if(ok){unlock(); return;}
+  lockFails++; pinBuf="";
+  lockEl.classList.remove("shake"); void lockEl.offsetWidth; lockEl.classList.add("shake");
+  if(lockFails>=5){lockWait=Date.now()+30000; lockFails=0; lockMsg("Too many tries. Try again in 30 s",true);} else lockMsg("Wrong passcode. Try again.",true);
+  setTimeout(renderDots,250);
+}
+function initLock(){
+  if(lockCfg()) showLock("full");
+  document.addEventListener("visibilitychange",function(){
+    var c=lockCfg(); if(!c) return;
+    if(document.visibilityState==="hidden"){ if(!isLocked){hiddenAt=Date.now(); showLock("cover");} }
+    else if(lockEl&&lockEl.classList.contains("cover")){
+      if(Date.now()-hiddenAt>=n(c.after)*1000) showLock("full"); else unlock();
+    }
+  });
+}
+/* settings card */
+var AFTER_OPTS=[[0,"Immediately"],[60,"After 1 minute"],[300,"After 5 minutes"],[900,"After 15 minutes"]];
+function pinField(id,label){return '<div class="f"><label for="'+id+'">'+label+'</label><input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" id="'+id+'"></div>';}
+function lockCardHTML(){
+  var c=lockCfg();
+  if(!canCrypto()) return '<p class="note">App lock needs a secure (https) connection. Open the app from its GitHub Pages address.</p>';
+  if(!c) return '<p class="note" style="margin-bottom:12px">Ask for a passcode, or Face ID, when the app opens. Your figures stay on this phone; the lock stops anyone else who picks it up from seeing them.</p>'+
+    '<div class="fields" style="padding-right:0">'+pinField("pin-new","New passcode (4–6 digits)")+pinField("pin-new2","Repeat passcode")+'</div>'+
+    '<div class="data-actions" style="margin-top:12px"><button class="btn primary" type="button" id="lock-on">Turn on lock</button></div><p class="note" id="lock-note" style="margin-top:10px"></p>';
+  return '<div class="lock-set"><div class="lock-row"><span><b>Lock is on</b><small>'+c.digits+'-digit passcode'+(c.bio?' · Face ID on':'')+'</small></span><button class="btn sm" type="button" id="lock-now">'+LOCK_SVG.replace('<svg','<svg width="16" height="16"')+'Lock now</button></div>'+
+    '<div class="lock-row"><label for="lock-after">Lock the app</label><select id="lock-after" class="bal-month">'+AFTER_OPTS.map(function(o){return '<option value="'+o[0]+'"'+(n(c.after)===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join("")+'</select></div>'+
+    '<div class="lock-row" id="bio-row"><span><b>Face ID</b><small id="bio-sub">Checking…</small></span><button class="btn sm" type="button" id="bio-toggle" hidden></button></div>'+
+    '<details class="lock-more"><summary>Change passcode or turn off lock</summary><div class="fields" style="padding-right:0;margin-top:12px">'+pinField("pin-cur","Current passcode")+pinField("pin-new","New passcode (4–6 digits)")+pinField("pin-new2","Repeat new passcode")+'</div>'+
+    '<div class="data-actions" style="margin-top:12px"><button class="btn primary" type="button" id="lock-change">Change passcode</button><button class="btn danger" type="button" id="lock-off">Turn off lock</button></div><p class="note" style="margin-top:8px">Turning off only needs your current passcode.</p></details>'+
+    '<p class="note" id="lock-note" style="margin-top:10px"></p></div>';
+}
+function lockNote(t,bad){var e=$("lock-note"); if(e){e.innerHTML=t; e.style.color=bad?"var(--neg)":"var(--pos)";}}
+function newPinFrom(){
+  var a=($("pin-new")||{}).value||"", b=($("pin-new2")||{}).value||"";
+  if(!/^[0-9]{4,6}$/.test(a)) return {err:"Use 4 to 6 digits for the passcode."};
+  if(a!==b) return {err:"The two passcodes don’t match."};
+  return {pin:a};
+}
+async function setPin(pin,keep){var salt=b64(rnd(16)), hash=await hashPin(pin,salt); var c=Object.assign({after:60,bio:null},keep||{}, {on:true,salt:salt,hash:hash,digits:pin.length}); return saveLock(c);}
+async function checkCur(){var c=lockCfg(), v=($("pin-cur")||{}).value||""; if(!c) return false; try{return (await hashPin(v,c.salt))===c.hash;}catch(e){return false;}}
+function wireLockCard(){
+  var box=$("lock-card"); if(!box) return; box.innerHTML=lockCardHTML(); var c=lockCfg();
+  var on=$("lock-on"); if(on) on.onclick=async function(){var r=newPinFrom(); if(r.err) return lockNote(r.err,true);
+    if(await setPin(r.pin)){wireLockCard(); lockNote("Lock is on. You can also turn on Face ID.");} else lockNote("Couldn’t save the passcode. Storage is full or blocked.",true);};
+  if(!c) return;
+  $("lock-now").onclick=function(){showLock("full");};
+  $("lock-after").onchange=function(e){var x=lockCfg(); x.after=+e.target.value; saveLock(x); lockNote("Saved.");};
+  $("lock-change").onclick=async function(){ if(!(await checkCur())) return lockNote("Current passcode is wrong.",true); var r=newPinFrom(); if(r.err) return lockNote(r.err,true);
+    var x=lockCfg(); if(await setPin(r.pin,{after:x.after,bio:x.bio})){wireLockCard(); lockNote("Passcode changed.");} };
+  $("lock-off").onclick=async function(){ if(!(await checkCur())) return lockNote("Enter your current passcode to turn the lock off.",true); saveLock(null); wireLockCard(); lockNote("Lock is off.");};
+  bioAvailable().then(function(ok){
+    var sub=$("bio-sub"), btn=$("bio-toggle"); if(!sub) return; var x=lockCfg();
+    if(!ok){sub.textContent="Not available in this browser. Your passcode still works."; return;}
+    sub.textContent=x.bio?"On. The app asks for Face ID first":"Off"; btn.hidden=false; btn.textContent=x.bio?"Turn off":"Turn on";
+    btn.onclick=async function(){var y=lockCfg();
+      if(y.bio){y.bio=null; saveLock(y); wireLockCard(); return lockNote("Face ID is off.");}
+      try{y.bio=await bioRegister(); saveLock(y); wireLockCard(); lockNote("Face ID is on.");}
+      catch(e){lockNote(e&&e.name==="NotAllowedError"?"Face ID setup was cancelled.":"Couldn’t set up Face ID here: "+esc((e&&e.message)||"unknown error"),true);}
+    };
+  });
+}
+
 (function load(){
   var raw=null; try{raw=localStorage.getItem(LS_KEY);}catch(e){}
   if(raw){try{state=normalize(JSON.parse(raw));}catch(e){}}
@@ -1666,6 +1839,8 @@ setYearLabels();
   applyName(); renderAll();
   try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist();}catch(e){}
 })();
+
+initLock();
 
 if("serviceWorker" in navigator&&location.protocol==="https:"){
   window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});
