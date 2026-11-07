@@ -1,7 +1,7 @@
 // Offline support for Planner 2027.
 // Pages load fresh from the network when online and fall back to the saved copy offline.
 // When you upload new files, bump VERSION so phones refresh their saved copy.
-const VERSION = "planner-2027-v15";
+const VERSION = "planner-2027-v16";
 const SHELL = [
   "./",
   "./index.html",

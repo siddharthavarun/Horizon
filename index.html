@@ -229,6 +229,11 @@ input,select{min-height:44px}
 .ledger .n{text-align:right;font-variant-numeric:tabular-nums}
 .ledger .tot{border-top:1px solid var(--hair);padding-top:8px;font-weight:700}
 .muted{color:var(--muted)} .faint{color:var(--faint)} .pos{color:var(--pos)} .neg{color:var(--neg)}
+.pie-ctl{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 12px;margin-bottom:16px}
+.sort-ctl{display:flex;justify-content:flex-end;margin-bottom:12px}
+.ctl{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);min-width:0}
+.ctl span{white-space:nowrap}
+.ctl select{width:auto;min-height:38px;padding:6px 30px 6px 12px;font-size:14px}
 .inline-set{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:13.5px;color:var(--muted)}
 .inline-set input{width:90px}
 .note{font-size:12.5px;color:var(--faint);margin:0}
@@ -585,6 +590,11 @@ function normalize(s){
 var state=blankState();
 var tab="overview";
 var editing=null, curC=null;
+function pref(k,d,ok){try{var v=localStorage.getItem("fp-"+k); return ok.indexOf(v)>=0?v:d;}catch(e){return d;}}
+function setPref(k,v){try{localStorage.setItem("fp-"+k,v);}catch(e){}}
+var INV_SORTS=[["name","Name (A–Z)"],["value","Value on 1 Jan"],["end","Projected 31 Dec"],["contrib","Paying in this year"],["rate","Expected return"],["type","Type"],["country","Country"],["cur","Currency"],["platform","Platform"]];
+var INV_SPLITS=[["product","Product"],["type","Type"],["country","Country"],["cur","Currency"],["platform","Platform"],["rate","Expected return"]];
+var invSort=pref("inv-sort","value",INV_SORTS.map(function(x){return x[0];})), invSplit=pref("inv-split","product",INV_SPLITS.map(function(x){return x[0];})), invMeasure=pref("inv-measure","end",["end","start"]);
 try{var t0=localStorage.getItem(LS_TAB); if(t0&&TABS.some(function(t){return t[0]===t0;})) tab=t0;}catch(e){}
 
 function uid(){return Math.random().toString(36).slice(2,10);}
@@ -802,6 +812,7 @@ function editorHTML(list,r){
 function listHTML(list){
   var L=LISTS[list], rows=state[list], C=curC;
   var saved=rows.filter(function(r){return r.id!==editing;}), ed=rows.find(function(r){return r.id===editing;});
+  if(list==="investments") saved=sortInv(saved);
   var body='';
   if(saved.length){
     var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth")&&!(list==="investments"&&["payMonth","rate","endYear","cover","maturity"].indexOf(f.k)>=0);});
@@ -926,17 +937,43 @@ function donutHTML(obj,total,emptyMsg,o){
     '<div class="dlg'+(o.tag?' tagged':'')+'">'+e.map(function(x,i){return '<button type="button" data-slice="'+i+'" data-name="'+esc(x[0])+'" data-amt="'+x[1]+'" style="--c:'+PIE[i%PIE.length]+'"><i></i><span>'+(o.tag?'<b class="nm1">'+esc(x[0])+'</b><small class="r">'+o.tag(x[0])+'</small>':esc(x[0]))+'</span><span class="a">'+money(x[1])+'</span><span class="p">'+Math.round(x[1]/total*100)+'%</span></button>';}).join("")+'</div></div>'+
     '<p class="note" style="margin-top:12px">'+o.note(top,total)+'</p>';
 }
-function invPie(){
-  var obj={}, rates={}, total=0, start=0, seen={};
-  state.investments.forEach(function(r){
-    var end=n(r.value), rr=invRate(r); for(var m=0;m<12;m++) end=end*(1+rr)+invInMonth(r,m);
-    var v=eur(end,r.cur); if(v<=0.5) return;
-    var nm=(r.product||"Untitled").trim()||"Untitled"; if(seen[nm]){seen[nm]++; nm+=" ("+seen[nm]+")";} else seen[nm]=1;
-    obj[nm]=v; rates[nm]=n(r.rate); total+=v; start+=eur(r.value,r.cur);
+function invEnd(r){var end=n(r.value), rr=invRate(r); for(var m=0;m<12;m++) end=end*(1+rr)+invInMonth(r,m); return end;}
+function sortInv(rows){
+  var k=invSort, txt=function(v){return String(v||"").toLowerCase();};
+  var val={value:function(r){return eur(r.value,r.cur);},end:function(r){return eur(invEnd(r),r.cur);},contrib:function(r){return eur(invEnded(r)?0:invPerYear(r),r.cur);},rate:function(r){return n(r.rate);}}[k];
+  return rows.slice().sort(function(a,b){
+    if(val){var d=val(b)-val(a); if(Math.abs(d)>1e-9) return d;}
+    else if(k!=="name"){var c=txt(a[k]).localeCompare(txt(b[k])); if(c) return c; var d2=eur(invEnd(b),b.cur)-eur(invEnd(a),a.cur); if(Math.abs(d2)>1e-9) return d2;}
+    return txt(a.product).localeCompare(txt(b.product));
   });
-  return donutHTML(obj,total,"Add investments below to see how your money is split",{label:"Investments split by product, projected to 31 December",sub:"by 31 Dec",
-    tag:function(nm){return "at "+rates[nm]+"% p.a.";},
-    note:function(top,tot){return "Each investment is projected to 31 Dec at its own expected return, shown under its name. "+esc(top[0])+" is your largest at "+Math.round(top[1]/tot*100)+"%. Portfolio "+money(start)+" on 1 Jan → "+money(tot)+" by 31 Dec. Tap a slice or row to focus it.";}});
+}
+function invControlsHTML(){
+  var opt=function(list,cur){return list.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===cur?' selected':'')+'>'+x[1]+'</option>';}).join("");};
+  return '<div class="pie-ctl"><label class="ctl"><span>Split by</span><select id="inv-split">'+opt(INV_SPLITS,invSplit)+'</select></label>'+
+    '<div class="seg" role="group" aria-label="Value shown"><button type="button" data-measure="start" aria-pressed="'+(invMeasure==="start")+'">1 Jan</button><button type="button" data-measure="end" aria-pressed="'+(invMeasure==="end")+'">31 Dec</button></div></div>';
+}
+function invSortHTML(){
+  if(state.investments.length<2) return '';
+  return '<div class="sort-ctl"><label class="ctl"><span>Sort by</span><select id="inv-sort">'+INV_SORTS.map(function(x){return '<option value="'+x[0]+'"'+(x[0]===invSort?' selected':'')+'>'+x[1]+'</option>';}).join("")+'</select></label></div>';
+}
+function invPie(){
+  var obj={}, info={}, total=0, start=0, endT=0, seen={}, by=invSplit, atEnd=invMeasure==="end";
+  var label=INV_SPLITS.filter(function(x){return x[0]===by;})[0][1];
+  state.investments.forEach(function(r){
+    var vS=eur(r.value,r.cur), vE=eur(invEnd(r),r.cur), v=atEnd?vE:vS; start+=vS; endT+=vE;
+    if(v<=0.5) return;
+    var key;
+    if(by==="product"){key=(r.product||"Untitled").trim()||"Untitled"; if(seen[key]){seen[key]++; key+=" ("+seen[key]+")";} else seen[key]=1;}
+    else if(by==="rate") key=n(r.rate)+"% p.a.";
+    else{key=String(r[by]||"").trim(); if(!key||key==="Not set") key=by==="platform"?"No platform":by==="country"?"Country not set":"Not set";}
+    obj[key]=(obj[key]||0)+v; total+=v;
+    var g=info[key]||(info[key]={count:0,w:0,rw:0,rate:n(r.rate)}); g.count++; g.w+=v; g.rw+=v*n(r.rate);
+  });
+  var when=atEnd?"by 31 Dec":"on 1 Jan";
+  return donutHTML(obj,total,"Add investments below to see how your money is split",{label:"Investments split by "+label.toLowerCase()+", "+(atEnd?"projected to 31 December":"value on 1 January"),sub:when,
+    tag:function(k){var g=info[k]; if(by==="product") return "at "+g.rate+"% p.a."; var avg=g.w>0?Math.round(g.rw/g.w*10)/10:0; if(by==="rate") return g.count+" investment"+(g.count>1?"s":""); return g.count>1?g.count+" investments · avg "+avg+"%":"at "+avg+"% p.a.";},
+    note:function(top,tot){var share=Math.round(top[1]/tot*100);
+      return (by==="product"?"":"Split by "+label.toLowerCase()+". ")+esc(top[0])+" is your largest at "+share+"%. Portfolio "+money(start)+" on 1 Jan → "+money(endT)+" by 31 Dec, each investment at its own expected return. Tap a slice or row to focus it.";}});
 }
 function focusSlice(wrap,i){
   var cur=wrap.getAttribute("data-on"), on=(cur===String(i))?null:String(i);
@@ -1015,7 +1052,7 @@ function renderPanel(){
   el.setAttribute("aria-labelledby","tab-"+tab);
   $("stats").hidden=(tab!=="overview");
   if(tab==="overview") h=overviewHTML(C);
-  else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Where your money is invested","Projected value on 31 Dec "+YEAR+", each at its own expected return",'<div data-invpie></div>')+card("Investments & monthly plans","Values in each product’s own currency",listHTML("investments"));
+  else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Where your money is invested","Split your portfolio by product, type, country and more",invControlsHTML()+'<div data-invpie></div>')+card("Investments & monthly plans","Values in each product’s own currency",invSortHTML()+listHTML("investments"));
   else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+card("Bank balances","Current, savings and overnight accounts",listHTML("banks"))+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
   else if(tab==="budget") h='<div class="summary" data-sum="budget"></div>'+
     card("Income","Net amounts that land in your account each month",
@@ -1410,7 +1447,14 @@ function onField(e){
 $("panel").addEventListener("input",onField);
 $("panel").addEventListener("change",function(e){if(e.target.tagName==="SELECT"||e.target.type==="checkbox"||e.target.type==="date") onField(e);});
 
+$("panel").addEventListener("change",function(e){
+  var t=e.target;
+  if(t.id==="inv-split"){invSplit=t.value; setPref("inv-split",invSplit); var pe=document.querySelector("[data-invpie]"); if(pe){pe.dataset.sig=""; refreshDerived();} }
+  else if(t.id==="inv-sort"){invSort=t.value; setPref("inv-sort",invSort); renderPanel();}
+});
 $("panel").addEventListener("click",function(e){
+  var ms=e.target.closest("[data-measure]");
+  if(ms){invMeasure=ms.dataset.measure; setPref("inv-measure",invMeasure); ms.parentNode.querySelectorAll("[data-measure]").forEach(function(b){b.setAttribute("aria-pressed",String(b===ms));}); var pe=document.querySelector("[data-invpie]"); if(pe){pe.dataset.sig=""; refreshDerived();} return;}
   if(e.target.closest("[data-shareall]")){state.variable.forEach(function(f){f.shared=true;}); changed(); renderPanel(); return;}
   var sl=e.target.closest(".donut [data-slice]");
   if(sl){focusSlice(sl.closest(".donut"),sl.dataset.slice); return;}
