@@ -470,6 +470,7 @@ var YEAR=(function(){var y=null; try{y=+localStorage.getItem(YEAR_KEY);}catch(e)
 var START=new Date(YEAR,0,1);
 var DOC_ID="planner"+YEAR;
 var LS_KEY="fp"+YEAR+"-state", LS_TAB="fp2027-tab";
+var NO_PAY="None";
 
 var ICONS={
   landmark:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M12 2 20 7H4z"/></svg>',
@@ -493,7 +494,7 @@ var LISTS={
     {k:"value",l:"Value on 1 Jan "+YEAR+"",t:"num"},
     {k:"freq",l:"How often",t:"select",o:INV_FREQS},
     {k:"monthly",l:"Contribution",s:"Contrib.",t:"num"},
-    {k:"payMonth",l:"Paid in",t:"select",o:MONTHS},
+    {k:"payMonth",l:"Paid in",t:"select",o:[NO_PAY].concat(MONTHS)},
     {k:"rate",l:"Expected return % p.a.",s:"Return",t:"num"},
     {k:"endYear",l:"Last payment year (optional)",s:"Last pay",t:"num"},
     {k:"cover",l:"Sum assured",t:"num"},
@@ -629,8 +630,10 @@ function projByMonth(p){var m=[0,0,0,0,0,0,0,0,0,0,0,0], c=projCost(p), sp=projS
   return m;}
 function invRate(i){return n(i.rate)/1200;}
 function invEnded(i){var e=Math.round(n(i.endYear)); return e>0&&YEAR>e;}
+function invNoPay(i){return (i.freq||"Monthly")==="One-time"&&MONTHS.indexOf(i.payMonth)<0;}
 function invInMonth(i,mi){
   if(!i.active||invEnded(i)) return 0; var a=n(i.monthly), f=i.freq||"Monthly"; if(f==="Monthly") return a;
+  if(f==="One-time"&&invNoPay(i)) return 0;
   var due=Math.max(0,MONTHS.indexOf(i.payMonth));
   if(f==="Quarterly") return ((mi-due)%3+3)%3===0?a:0;
   return mi===due?a:0;
@@ -773,7 +776,7 @@ function cellHTML(list,r,f){
   }
   if(f.t==="date"){var d=parseDate(v); return '<td>'+(d?dateLabel(d):'—')+'</td>';}
   if(list==="fixed"&&f.k==="dueMonth"&&r.freq==="Monthly") return '<td class="faint">—</td>';
-  if(list==="investments"&&f.k==="freq"){var fq=r.freq||"Monthly"; return '<td>'+esc(fq)+(fq==="Monthly"?'':' <span class="faint">· '+(fq==="Quarterly"?'from ':'')+esc(r.payMonth||"Jan")+'</span>')+'</td>';}
+  if(list==="investments"&&f.k==="freq"){var fq=r.freq||"Monthly"; return '<td>'+esc(fq)+(fq==="Monthly"?'':' <span class="faint">· '+(invNoPay(r)?'none in '+YEAR:(fq==="Quarterly"?'from ':'')+esc(MONTHS.indexOf(r.payMonth)>=0?r.payMonth:"Jan"))+'</span>')+'</td>';}
   return '<td>'+(v?esc(v):'<span class="faint">—</span>')+'</td>';
 }
 function shortCalc(list,r,C){
@@ -820,8 +823,8 @@ function calcText(list,r,C){
     var mo=n(r.monthly), v=n(r.value), rr=invRate(r), end=v, yr=invEnded(r)?0:invPerYear(r), f=r.freq||"Monthly", rp=n(r.rate);
     for(var i=0;i<12;i++) end=end*(1+rr)+invInMonth(r,i);
     var how=f==="Monthly"?moneyCur(mo,r.cur)+' a month':f==="Quarterly"?moneyCur(mo,r.cur)+' a quarter, '+invWhen(r):f==="Yearly"?'paid '+invWhen(r):'one-time, in '+invMonths(r)[0];
-    var ended=invEnded(r)&&mo>0;
-    var s=(ended?'<span class="pos">Payments finished in '+Math.round(n(r.endYear))+'</span> · ':(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':'')))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+rp+'% p.a.';
+    var ended=invEnded(r)&&mo>0, nopay=invNoPay(r);
+    var s=(nopay?'<span class="faint">Already invested · no payment in '+YEAR+'</span> · ':ended?'<span class="pos">Payments finished in '+Math.round(n(r.endYear))+'</span> · ':(r.active&&mo>0?'<b>'+moneyCur(yr,r.cur)+'</b> going in during '+YEAR+' <span class="faint">('+how+')</span> · ':(mo>0?'<span class="warn">Plan paused</span> · ':'')))+'≈ <b>'+moneyCur(end,r.cur)+'</b> by 31 Dec at '+rp+'% p.a.';
     if(r.cur!=="EUR") s+=' <span class="faint">(≈ '+money(eur(end,r.cur))+')</span>';
     var extra=[], ey=Math.round(n(r.endYear));
     if(ey>0&&!ended&&mo>0){var left=ey-YEAR; extra.push(left>0?'Payments run until '+ey+', '+left+' more year'+(left>1?'s':'')+' after '+YEAR:'Last payment is in '+YEAR);}
@@ -1058,12 +1061,15 @@ function syncInvFields(){
     var pm=document.getElementById("f-investments-"+r.id+"-payMonth"); if(!pm) return;
     var f=r.freq||"Monthly", wrap=pm.closest(".f"), lab=wrap.querySelector("label");
     wrap.hidden=(f==="Monthly");
-    lab.textContent=f==="Quarterly"?"First payment in":"Paid in";
+    lab.textContent=f==="Quarterly"?"First payment in":f==="One-time"?"Paid in (optional)":"Paid in";
+    var noOpt=pm.querySelector('option[value="'+NO_PAY+'"]')||[].find.call(pm.options,function(o){return o.text===NO_PAY;});
+    if(noOpt){noOpt.hidden=noOpt.disabled=(f!=="One-time"); if(f!=="One-time"&&pm.value===NO_PAY){pm.value="Jan"; r.payMonth="Jan";}}
     var amt=document.getElementById("f-investments-"+r.id+"-monthly");
-    if(amt){var al=amt.closest(".f").querySelector("label"); al.textContent=f==="Monthly"?"Monthly amount":f==="Quarterly"?"Amount per quarter":f==="Yearly"?"Yearly amount":"One-time amount";}
+    if(amt){var al=amt.closest(".f").querySelector("label"); al.textContent=f==="Monthly"?"Monthly amount":f==="Quarterly"?"Amount per quarter":f==="Yearly"?"Yearly amount":(invNoPay(r)?"One-time amount (optional)":"One-time amount");}
     ["cover","maturity"].forEach(function(k){var el=document.getElementById("f-investments-"+r.id+"-"+k); if(el) el.closest(".f").hidden=(r.type!=="Policy");});
     var act=document.getElementById("f-investments-"+r.id+"-active");
-    if(act){act.closest(".f").querySelector("label").textContent=f==="One-time"?"Will be paid":"Plan running";}
+    if(act){act.closest(".f").querySelector("label").textContent=f==="One-time"?"Will be paid":"Plan running"; act.closest(".f").hidden=invNoPay(r);}
+    var ey=document.getElementById("f-investments-"+r.id+"-endYear"); if(ey) ey.closest(".f").hidden=(f==="One-time");
   });
 }
 function refreshDerived(C){
@@ -1396,6 +1402,7 @@ function onField(e){
     if(k==="sharePct") document.querySelectorAll('[data-k="sharePct"]').forEach(function(o){if(o!==el) o.value=val;});
   } else if(el.dataset.list){
     var r=state[el.dataset.list].find(function(x){return x.id===el.dataset.rid;}); if(!r) return; r[k]=val;
+    if(el.dataset.list==="investments"&&k==="freq"&&val==="One-time"&&!(n(r.monthly)>0)){r.payMonth=NO_PAY; var pmE=document.getElementById("f-investments-"+r.id+"-payMonth"); if(pmE) pmE.value=NO_PAY;}
     if(el.dataset.list==="fds"&&(k==="start"||k==="maturity")){var mi=document.getElementById("f-fds-"+r.id+"-maturity"); if(mi&&r.start) mi.min=r.start; var tw=document.querySelector('[data-terms="'+r.id+'"]'); if(tw) tw.outerHTML=termsHTML(r);}
   } else return;
   changed(); refreshDerived();
