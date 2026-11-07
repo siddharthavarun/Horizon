@@ -302,7 +302,9 @@ input,select{min-height:44px}
 table.fc{width:100%;min-width:720px;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
 .fc th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid var(--hair)}
 .fc th:first-child,.fc td:first-child{text-align:left}
-.fc td{text-align:right;padding:8px;border-bottom:1px solid rgba(255,255,255,.05)}
+.fc td{text-align:right;padding:8px;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap}
+.fc td.bal .pill{display:block;width:max-content;margin:4px 0 0 auto}
+.ledger .n,.flow .a,.sum .x,.vt td{white-space:nowrap}
 .fc tr.warn td{background:rgba(251,191,36,.06)}
 .fc tr.bad td{background:rgba(251,113,133,.09)}
 .fc td.bal{font-weight:700}
@@ -602,7 +604,7 @@ function n(v){v=+v;return isFinite(v)?v:0;}
 function rateOf(cur){var s=state.settings; if(cur==="INR") return n(s.inrPerEur)||1; if(cur==="USD") return n(s.usdPerEur)||1; return 1;}
 function eur(a,cur){return n(a)/rateOf(cur||"EUR");}
 var fmtE=new Intl.NumberFormat("en-IE",{style:"currency",currency:"EUR",maximumFractionDigits:0});
-function money(v){return fmtE.format(Math.round(v)||0).replace("-€","−€");}
+function money(v){return fmtE.format(Math.round(v)||0).replace("-€","−\u2060€");}
 function moneyCur(v,cur){try{return new Intl.NumberFormat(cur==="INR"?"en-IN":"en-IE",{style:"currency",currency:cur,maximumFractionDigits:0}).format(Math.round(v)||0);}catch(e){return money(v);}}
 function pct(v){return (isFinite(v)?Math.round(v*10)/10:0)+"%";}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
@@ -754,7 +756,7 @@ function renderStats(C){
   var end=C.pts[12].nw, d=end-C.nw, pc=Math.abs(C.nw)>1?d/Math.abs(C.nw)*100:0;
   var cum=0, cumInc=C.rows.map(function(r){cum+=r.income;return cum;});
   $("stats").innerHTML=[
-    statCard({t:"Net worth · 1 Jan "+YEAR+"",v:money(C.nw),c:(d>=0?"+":"−")+pct(Math.abs(pc))+" by Dec",dir:d>0?1:d<0?-1:0,i:"landmark",g:"linear-gradient(135deg,#f59e0b,#ea580c)",sp:C.pts.map(function(p){return p.nw;}),sc:"#fbbf24"}),
+    statCard({t:"Net worth · 1 Jan "+YEAR+"",v:money(C.nw),c:(d>=0?"+":"−\u2060")+pct(Math.abs(pc))+" by Dec",dir:d>0?1:d<0?-1:0,i:"landmark",g:"linear-gradient(135deg,#f59e0b,#ea580c)",sp:C.pts.map(function(p){return p.nw;}),sc:"#fbbf24"}),
     statCard({t:"Monthly income",v:money(C.income),c:money(C.income*12)+" / yr",dir:0,i:"wallet",g:"linear-gradient(135deg,#10b981,#059669)",sp:[0].concat(cumInc),sc:"#34d399"}),
     statCard({t:"Monthly surplus",v:money(C.surplus),c:(C.income>0?pct(C.surplus/C.income*100):"0%")+" of income",dir:C.surplus>0?1:C.surplus<0?-1:0,i:"piggy",g:"linear-gradient(135deg,#3b82f6,#2563eb)",sp:[C.cash].concat(C.rows.map(function(r){return r.bal;})),sc:"#60a5fa"}),
     statCard({t:"Savings rate",v:pct(C.savingsRate),c:money(C.invMonthly)+" / mo",dir:C.invMonthly>0?1:0,i:"trend",g:"linear-gradient(135deg,#8b5cf6,#7c3aed)",sp:C.pts.map(function(p){return p.inv;}),sc:"#a78bfa"})
@@ -897,7 +899,7 @@ function summaryHTML(which,C){
     return sum("Budget for "+YEAR+"",money(C.varBudY),money(C.varBudY/12)+" a month")+
       sum("Spent so far",money(C.varActSum),nm?nm+" month"+(nm>1?"s":"")+" entered · "+'<span class="'+(dv>0.5?"over":"under")+'">'+money(Math.abs(dv))+(dv>0.5?" over":" under")+'</span>':"no months entered yet")+
       sum("Forecast for "+YEAR+"",money(C.varFcY),nm?"actuals + budget for the rest":"equals your budget")+
-      sum("Versus budget",'<span class="'+(df>0.5?"neg":df<-0.5?"pos":"")+'">'+(df>0.5?"+":df<-0.5?"−":"")+money(Math.abs(df))+'</span>',df>0.5?"over for the year":df<-0.5?"under for the year":"on budget");}
+      sum("Versus budget",'<span class="'+(df>0.5?"neg":df<-0.5?"pos":"")+'">'+(df>0.5?"+":df<-0.5?"−\u2060":"")+money(Math.abs(df))+'</span>',df>0.5?"over for the year":df<-0.5?"under for the year":"on budget");}
   if(which==="projects"){var P=state.projects, done=P.filter(function(p){return n(p.actual)>0;}), dEst=0, dAct=0;
     done.forEach(function(p){dEst+=eur(p.estimate,p.cur); dAct+=eur(p.actual,p.cur);});
     var open=P.filter(function(p){return p.status!=="Done";}).length, diff=dAct-dEst;
@@ -1013,7 +1015,7 @@ function upcoming(C){
 function overviewHTML(C){
   var key=chartKey, s0=C.pts[0][key], s12=C.pts[12][key], dd=s12-s0;
   var chart='<div class="card glass"><div class="card-h"><div><h2>'+SERIES[key][0]+' by month</h2><p>Month-end values through '+YEAR+'</p></div>'+
-    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="badge'+(dd<0?" neg":"")+'" id="ch-badge">'+(dd>=0?"+":"−")+money(Math.abs(dd))+' over the year</span>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><span class="badge'+(dd<0?" neg":"")+'" id="ch-badge">'+(dd>=0?"+":"−\u2060")+money(Math.abs(dd))+' over the year</span>'+
     '<div class="seg" role="group" aria-label="Chart series">'+Object.keys(SERIES).map(function(k){return '<button type="button" data-series="'+k+'" aria-pressed="'+(k===key)+'">'+SERIES[k][0]+'</button>';}).join("")+'</div></div></div>'+
     '<div class="chart tall" id="chart"></div></div>';
   var evs=upcoming(C), shown=evs.slice(0,7);
@@ -1036,7 +1038,7 @@ function overviewHTML(C){
     '<div class="goal">'+ring(efm/6,"#60a5fa",(Math.round(efm*10)/10)+"m")+'<div><b>Emergency cushion</b><span>Target 6 months of costs</span></div></div>'+
     '<div class="goal">'+ring(debtP,"#fbbf24",Math.round(debtP*100)+"%")+'<div><b>Debt paid down</b><span>'+(C.emiOut>0?money(C.emiOut-C.pts[12].emi)+" of "+money(C.emiOut)+" by Dec":"No EMIs")+'</span></div></div></div>');
   var p0=C.pts[0], p12=C.pts[12];
-  var row=function(l,a,b,neg){return '<span>'+l+'</span><span class="n faint">'+(neg&&a?"−":"")+money(a)+'</span><span class="n">'+(neg&&b?"−":"")+money(b)+'</span>';};
+  var row=function(l,a,b,neg){return '<span>'+l+'</span><span class="n faint">'+(neg&&a?"−\u2060":"")+money(a)+'</span><span class="n">'+(neg&&b?"−\u2060":"")+money(b)+'</span>';};
   var ledger=card("Start vs end of year","",
     '<div class="ledger"><span class="h"></span><span class="h n">1 Jan</span><span class="h n">31 Dec</span>'+
     row("Investments",p0.inv,p12.inv)+row("Fixed deposits",p0.fd,p12.fd)+row("Cash",p0.cash,p12.cash)+row("EMIs left",p0.emi,p12.emi,true)+
@@ -1156,7 +1158,7 @@ function updateVarMonth(C){
   });
   var t=$("vtot"); if(t){
     var act=C.varActM[mi], fc=C.varFcM[mi], bud=C.varBudM[mi], d=fc-bud;
-    t.innerHTML='<span class="muted">'+MONTHS[mi]+' '+YEAR+''+(C.varHas[mi]?' · <span class="faint">'+money(act)+' entered</span>':'')+'</span><span><b>'+money(fc)+'</b> <span class="faint">of '+money(bud)+'</span> '+(Math.abs(d)>0.5?'<span class="'+(d>0?"over":"under")+'">'+(d>0?"+":"−")+money(Math.abs(d))+'</span>':'')+'</span>';
+    t.innerHTML='<span class="muted">'+MONTHS[mi]+' '+YEAR+''+(C.varHas[mi]?' · <span class="faint">'+money(act)+' entered</span>':'')+'</span><span><b>'+money(fc)+'</b> <span class="faint">of '+money(bud)+'</span> '+(Math.abs(d)>0.5?'<span class="'+(d>0?"over":"under")+'">'+(d>0?"+":"−\u2060")+money(Math.abs(d))+'</span>':'')+'</span>';
   }
   document.querySelectorAll(".mchip").forEach(function(b){var i=+b.dataset.vm; b.classList.toggle("has",state.variable.some(function(f){return hasAct(f,i);}));});
 }
@@ -1166,11 +1168,11 @@ function renderVarYear(C){
   var tb=0,ta=0,tf=0;
   var body=MONTHS.map(function(m,i){
     var b=C.varBudM[i], f=C.varFcM[i], d=f-b, has=C.varHas[i]; tb+=b; tf+=f; ta+=C.varActM[i];
-    return '<tr data-vm="'+i+'" class="'+(i===vMonth?"cur":"")+'"><td>'+m+(has?'':'<span class="pill est">budget</span>')+'</td><td>'+money(b)+'</td><td>'+(has?money(f):'<span class="faint">'+money(f)+'</span>')+'</td><td class="'+(Math.abs(d)<0.5?"faint":d>0?"neg":"pos")+'">'+(Math.abs(d)<0.5?"–":(d>0?"+":"−")+money(Math.abs(d)))+'</td></tr>';
+    return '<tr data-vm="'+i+'" class="'+(i===vMonth?"cur":"")+'"><td>'+m+(has?'':'<span class="pill est">budget</span>')+'</td><td>'+money(b)+'</td><td>'+(has?money(f):'<span class="faint">'+money(f)+'</span>')+'</td><td class="'+(Math.abs(d)<0.5?"faint":d>0?"neg":"pos")+'">'+(Math.abs(d)<0.5?"–":(d>0?"+":"−\u2060")+money(Math.abs(d)))+'</td></tr>';
   }).join("");
   var td=tf-tb;
   t.innerHTML='<table class="fc vy"><thead><tr><th>Month</th><th>Budget</th><th>Actual / est.</th><th>Diff</th></tr></thead><tbody>'+body+
-    '<tr><td><b>'+YEAR+'</b></td><td><b>'+money(tb)+'</b></td><td><b>'+money(tf)+'</b></td><td class="'+(Math.abs(td)<0.5?"":td>0?"neg":"pos")+'"><b>'+(Math.abs(td)<0.5?"–":(td>0?"+":"−")+money(Math.abs(td)))+'</b></td></tr></tbody></table>'+
+    '<tr><td><b>'+YEAR+'</b></td><td><b>'+money(tb)+'</b></td><td><b>'+money(tf)+'</b></td><td class="'+(Math.abs(td)<0.5?"":td>0?"neg":"pos")+'"><b>'+(Math.abs(td)<0.5?"–":(td>0?"+":"−\u2060")+money(Math.abs(td)))+'</b></td></tr></tbody></table>'+
     '<p class="note" style="margin-top:10px">Tap a month to enter its spending. These monthly figures feed the Forecast tab and your net-worth projection.</p>';
 }
 
@@ -1340,7 +1342,7 @@ function drawForecast(C){
 
 /* ---------- chart ---------- */
 function niceStep(range){var raw=range/4, p=Math.pow(10,Math.floor(Math.log10(raw||1))), f=raw/p; return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
-function compact(v){var a=Math.abs(v), s=v<0?"−":""; return s+"€"+(a>=1e6?(a/1e6).toFixed(1).replace(/\.0$/,"")+"M":a>=1e3?(a/1e3).toFixed(a>=1e4?0:1).replace(/\.0$/,"")+"k":Math.round(a));}
+function compact(v){var a=Math.abs(v), s=v<0?"−\u2060":""; return s+"€"+(a>=1e6?(a/1e6).toFixed(1).replace(/\.0$/,"")+"M":a>=1e3?(a/1e3).toFixed(a>=1e4?0:1).replace(/\.0$/,"")+"k":Math.round(a));}
 var lastC=null;
 var hoverBar=-1;
 function drawChart(C){
