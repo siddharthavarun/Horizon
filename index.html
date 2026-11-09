@@ -520,7 +520,7 @@ var START=new Date(YEAR,0,1);
 var DOC_ID="planner"+YEAR;
 var LS_KEY="fp"+YEAR+"-state", LS_TAB="fp2027-tab";
 var NO_PAY="None";
-var APP_VERSION="v20";
+var APP_VERSION="v21";
 
 var ICONS={
   landmark:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M12 2 20 7H4z"/></svg>',
@@ -555,8 +555,9 @@ var LISTS={
     {k:"name",l:"Account",t:"text",ph:"e.g. N26",wide:true},
     {k:"purpose",l:"Used for",t:"text",ph:"e.g. Salary, emergency fund"},
     {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
-    {k:"balance",l:"Balance on 1 Jan "+YEAR+"",t:"num"}],
-    blank:function(){return {name:"",purpose:"",cur:"EUR",balance:0,mb:[null,null,null,null,null,null,null,null,null,null,null,null]};}},
+    {k:"asOf",l:"Month",t:"select",o:MONTHS},
+    {k:"bal",l:"Balance",t:"num"}],
+    blank:function(){return {name:"",purpose:"",cur:"EUR",balance:0,mb:[null,null,null,null,null,null,null,null,null,null,null,null],asOf:defBalMonth()};}},
   fds:{noun:"fixed deposit",empty:"No fixed deposits. Add one if you lock money away for a fixed term.",fields:[
     {k:"bank",l:"Bank / product",t:"text",ph:"e.g. Raisin 12-month FD",wide:true},
     {k:"cur",l:"Currency",s:"Cur.",t:"select",o:CURS},
@@ -677,6 +678,8 @@ function emiSchedule(e){
   while(bal>0.005&&months<1200){var i=bal*r; interest+=i; bal=bal+i-Math.min(pay,bal+i); months++;}
   return {months:months,interest:interest,ok:true};
 }
+function defBalMonth(){var d=new Date(); return MONTHS[d.getFullYear()===YEAR?d.getMonth():0];}
+function bankMonthVal(b,k){if(k===0) return n(b.balance); var v=b.mb&&b.mb[k]; return (v===null||v===undefined||v==="")?null:n(v);}
 function bankAt(b,k){for(var j=k;j>=1;j--){var v=b.mb&&b.mb[j]; if(v!==null&&v!==undefined&&v!=="") return {v:n(v),k:j};} return {v:n(b.balance),k:0};}
 function bankHas(b,k){var v=b.mb&&b.mb[k]; return k===0||(v!==null&&v!==undefined&&v!=="");}
 function projCost(p){return n(p.actual)>0?n(p.actual):n(p.estimate);}
@@ -820,6 +823,10 @@ function renderTabs(){
   $("rail").innerHTML=TABS.map(function(t){return '<button type="button" data-tab="'+t[0]+'" aria-label="'+t[1]+'" title="'+t[1]+'" aria-current="'+(t[0]===tab)+'">'+ti(t[0])+'</button>';}).join("");
 }
 function fieldHTML(list,row,f){
+  if(list==="banks"&&f.k==="bal"){
+    var bk=Math.max(0,MONTHS.indexOf(row.asOf)), bv=bankMonthVal(row,bk), bid="f-banks-"+row.id+"-bal";
+    return '<div class="f"><label for="'+bid+'">Balance</label><input type="number" step="any" inputmode="decimal" id="'+bid+'" data-list="banks" data-rid="'+row.id+'" data-k="bal" value="'+(bv===null?"":bv)+'" placeholder="'+(bk>0?"Not entered":"0")+'"></div>';
+  }
   var id="f-"+list+"-"+row.id+"-"+f.k, attrs='id="'+id+'" data-list="'+list+'" data-rid="'+row.id+'" data-k="'+f.k+'"';
   if(f.t==="check") return '<div class="f check"><input type="checkbox" '+attrs+(row[f.k]?" checked":"")+'><label for="'+id+'">'+esc(f.l)+'</label></div>';
   var inner;
@@ -870,7 +877,7 @@ function listHTML(list){
   if(list==="investments") saved=sortInv(saved);
   var body='';
   if(saved.length){
-    var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth")&&!(list==="investments"&&["payMonth","rate","endYear","cover","maturity"].indexOf(f.k)>=0);});
+    var TF=L.fields.filter(function(f){return !(list==="fixed"&&f.k==="dueMonth")&&!(list==="banks"&&(f.k==="asOf"||f.k==="bal"))&&!(list==="investments"&&["payMonth","rate","endYear","cover","maturity"].indexOf(f.k)>=0);});
     body='<div class="dbt-wrap"><table class="dbt"><thead><tr>'+TF.map(function(f,i){return '<th'+(i===0?' class="first"':(f.t==="num"?' class="n"':''))+'>'+(f.s?'<span class="hl">'+esc(f.l)+'</span><span class="hs">'+esc(f.s)+'</span>':esc(f.l))+'</th>';}).join("")+'<th class="n derived">'+(DERIVED_S[list]?'<span class="hl">'+DERIVED[list]+'</span><span class="hs">'+DERIVED_S[list]+'</span>':DERIVED[list])+'</th><th></th></tr></thead><tbody>'+
       saved.map(function(r){
         return '<tr tabindex="0" data-edit="'+r.id+'" aria-label="Edit '+esc(r[L.fields[0].k]||L.noun)+'">'+TF.map(function(f,i){
@@ -898,7 +905,7 @@ function calcText(list,r,C){
     if(extra.length) s+='<br><span class="faint">'+extra.join(' · ')+'</span>';
     return s;
   }
-  if(list==="banks"){var la=bankAt(r,C.latestK); return (la.k>0?'Latest balance <b>'+moneyCur(la.v,r.cur)+'</b> on 1 '+MONTHS[la.k]+(r.cur!=="EUR"?' (≈ '+money(eur(la.v,r.cur))+')':'')+'. ':(r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate. ':''))+'Update it each month in Monthly balances at the top of this tab.';}
+  if(list==="banks"){var la=bankAt(r,C.latestK); return (la.k>0?'Latest balance <b>'+moneyCur(la.v,r.cur)+'</b> on 1 '+MONTHS[la.k]+(r.cur!=="EUR"?' (≈ '+money(eur(la.v,r.cur))+')':'')+'. ':(r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate. ':''))+'Pick a month above to enter or check its balance on the 1st.';}
   if(list==="fds"){
     var m=parseDate(r.maturity), s0=parseDate(r.start);
     if(!m||!s0) return 'Add start and maturity dates to see what this pays out';
@@ -1137,7 +1144,7 @@ function renderPanel(){
   $("stats").hidden=(tab!=="overview");
   if(tab==="overview") h=overviewHTML(C);
   else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Where your money is invested","Split your portfolio by product, type, country and more",invControlsHTML()+'<div data-invpie></div>')+card("Investments & monthly plans","Values in each product’s own currency",invSortHTML()+listHTML("investments"));
-  else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+balCardHTML(C)+card("Bank balances","Your accounts and their balance on 1 Jan "+YEAR+". Update balances each month above",listHTML("banks"))+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
+  else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+balCardHTML(C)+card("Bank balances","Your accounts. Tap one to enter its balance for any month",listHTML("banks"))+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
   else if(tab==="budget") h='<div class="summary" data-sum="budget"></div>'+
     card("Income","Net amounts that land in your account each month",
       '<div class="fields" style="padding-right:0"><div class="f"><label for="in-salary">Monthly net salary (€)</label><input type="number" step="any" inputmode="decimal" id="in-salary" data-scope="income" data-k="salary" value="'+(n(state.income.salary)||"")+'" placeholder="0"></div><div class="f"><label for="in-other">Other monthly income (€)</label><input type="number" step="any" inputmode="decimal" id="in-other" data-scope="income" data-k="other" value="'+(n(state.income.other)||"")+'" placeholder="0"></div></div>')+
@@ -1526,7 +1533,14 @@ function onField(e){
     if(k==="name") applyName();
     if(k==="sharePct") document.querySelectorAll('[data-k="sharePct"]').forEach(function(o){if(o!==el) o.value=val;});
   } else if(el.dataset.list){
-    var r=state[el.dataset.list].find(function(x){return x.id===el.dataset.rid;}); if(!r) return; r[k]=val;
+    var r=state[el.dataset.list].find(function(x){return x.id===el.dataset.rid;}); if(!r) return;
+    if(el.dataset.list==="banks"&&k==="bal"){
+      var bk=Math.max(0,MONTHS.indexOf(r.asOf)); if(!Array.isArray(r.mb)) r.mb=[null,null,null,null,null,null,null,null,null,null,null,null];
+      if(bk===0) r.balance=el.value===""?0:n(el.value); else r.mb[bk]=el.value===""?null:n(el.value);
+      changed(); refreshDerived(); return;
+    }
+    r[k]=val;
+    if(el.dataset.list==="banks"&&k==="asOf"){var be=document.getElementById("f-banks-"+r.id+"-bal"), bk2=Math.max(0,MONTHS.indexOf(val)), bv2=bankMonthVal(r,bk2); if(be){be.value=bv2===null?"":bv2; be.placeholder=bk2>0?"Not entered":"0";}}
     if(el.dataset.list==="investments"&&k==="freq"&&val==="One-time"&&!(n(r.monthly)>0)){r.payMonth=NO_PAY; var pmE=document.getElementById("f-investments-"+r.id+"-payMonth"); if(pmE) pmE.value=NO_PAY;}
     if(el.dataset.list==="fds"&&(k==="start"||k==="maturity")){var mi=document.getElementById("f-fds-"+r.id+"-maturity"); if(mi&&r.start) mi.min=r.start; var tw=document.querySelector('[data-terms="'+r.id+'"]'); if(tw) tw.outerHTML=termsHTML(r);}
   } else return;
