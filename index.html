@@ -520,6 +520,7 @@ var START=new Date(YEAR,0,1);
 var DOC_ID="planner"+YEAR;
 var LS_KEY="fp"+YEAR+"-state", LS_TAB="fp2027-tab";
 var NO_PAY="None";
+var APP_VERSION="v20";
 
 var ICONS={
   landmark:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M12 2 20 7H4z"/></svg>',
@@ -897,7 +898,7 @@ function calcText(list,r,C){
     if(extra.length) s+='<br><span class="faint">'+extra.join(' · ')+'</span>';
     return s;
   }
-  if(list==="banks"){var la=bankAt(r,C.latestK); return (la.k>0?'Latest balance <b>'+moneyCur(la.v,r.cur)+'</b> on 1 '+MONTHS[la.k]+(r.cur!=="EUR"?' (≈ '+money(eur(la.v,r.cur))+')':'')+'. ':(r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate. ':''))+'Update it each month under Monthly balances.';}
+  if(list==="banks"){var la=bankAt(r,C.latestK); return (la.k>0?'Latest balance <b>'+moneyCur(la.v,r.cur)+'</b> on 1 '+MONTHS[la.k]+(r.cur!=="EUR"?' (≈ '+money(eur(la.v,r.cur))+')':'')+'. ':(r.cur!=="EUR"?'≈ <b>'+money(eur(r.balance,r.cur))+'</b> at your exchange rate. ':''))+'Update it each month in Monthly balances at the top of this tab.';}
   if(list==="fds"){
     var m=parseDate(r.maturity), s0=parseDate(r.start);
     if(!m||!s0) return 'Add start and maturity dates to see what this pays out';
@@ -1003,7 +1004,7 @@ function sortInv(rows){
 }
 var balMonth=(function(){var d=new Date(); return d.getFullYear()===YEAR?d.getMonth():(+pref("bal-month","0",["0","1","2","3","4","5","6","7","8","9","10","11"]));})();
 function balCardHTML(C){
-  if(!state.banks.length) return '';
+  if(!state.banks.length) return card("Monthly balances","Log what’s actually in each account on the 1st of each month",'<div class="empty">Add your bank accounts under Bank balances below. Then enter their balances here each month and the forecast restarts from them.</div>');
   var k=balMonth, rows=state.banks.map(function(b){
     var has=bankHas(b,k), v=k===0?n(b.balance):(has?n(b.mb[k]):""), prev=bankAt(b,Math.max(0,k-1));
     return '<div class="bal-row"><label for="mb-'+b.id+'"><b>'+esc(b.name||"Account")+'</b><small>'+esc(b.cur)+(k>0?' · last: '+moneyCur(prev.v,b.cur)+' on 1 '+MONTHS[prev.k]:'')+'</small></label>'+
@@ -1136,7 +1137,7 @@ function renderPanel(){
   $("stats").hidden=(tab!=="overview");
   if(tab==="overview") h=overviewHTML(C);
   else if(tab==="investments") h='<div class="summary" data-sum="investments"></div>'+card("Where your money is invested","Split your portfolio by product, type, country and more",invControlsHTML()+'<div data-invpie></div>')+card("Investments & monthly plans","Values in each product’s own currency",invSortHTML()+listHTML("investments"));
-  else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+card("Bank balances","Current, savings and overnight accounts",listHTML("banks"))+balCardHTML(C)+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
+  else if(tab==="cash") h='<div class="summary" data-sum="cash"></div>'+balCardHTML(C)+card("Bank balances","Your accounts and their balance on 1 Jan "+YEAR+". Update balances each month above",listHTML("banks"))+card("Fixed deposits","Term deposits locked until maturity",listHTML("fds"));
   else if(tab==="budget") h='<div class="summary" data-sum="budget"></div>'+
     card("Income","Net amounts that land in your account each month",
       '<div class="fields" style="padding-right:0"><div class="f"><label for="in-salary">Monthly net salary (€)</label><input type="number" step="any" inputmode="decimal" id="in-salary" data-scope="income" data-k="salary" value="'+(n(state.income.salary)||"")+'" placeholder="0"></div><div class="f"><label for="in-other">Other monthly income (€)</label><input type="number" step="any" inputmode="decimal" id="in-other" data-scope="income" data-k="other" value="'+(n(state.income.other)||"")+'" placeholder="0"></div></div>')+
@@ -1603,7 +1604,7 @@ $("panel").addEventListener("keydown",function(e){
 
 /* ---------- persistence (this device only) ---------- */
 function setStatus(s,text){var el=$("status"); el.dataset.s=s; el.querySelector("span").textContent=text;}
-function storeNote(){return "Saved on this device only. Nothing is sent anywhere.";}
+function storeNote(){return "Saved on this device only. Nothing is sent anywhere. App version "+APP_VERSION+".";}
 function cacheLocal(){try{localStorage.setItem(LS_KEY,JSON.stringify(state));return true;}catch(e){return false;}}
 function changed(){
   state.updatedAt=Date.now();
