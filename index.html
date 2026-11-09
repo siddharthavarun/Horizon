@@ -520,7 +520,7 @@ var START=new Date(YEAR,0,1);
 var DOC_ID="planner"+YEAR;
 var LS_KEY="fp"+YEAR+"-state", LS_TAB="fp2027-tab";
 var NO_PAY="None";
-var APP_VERSION="v21";
+var APP_VERSION="v22";
 
 var ICONS={
   landmark:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M12 2 20 7H4z"/></svg>',
@@ -622,6 +622,21 @@ var PRESETS={
 
 /* ---------- state ---------- */
 function blankState(){return {v:1,ratesOwn:true,example:false,updatedAt:0,settings:{name:"",inrPerEur:100,usdPerEur:1.15,returnPct:7,sharePct:100,buffer:0,overdraft:0},income:{salary:0,other:0},investments:[],banks:[],fds:[],fixed:[],variable:[],trips:[],projects:[],emis:[]};}
+/* rows with the same account name and currency are one account: combine their monthly balances */
+function mergeBanks(list){
+  var keep={}, out=[], merged=[];
+  list.forEach(function(r){
+    var nm=String(r.name||"").trim().toLowerCase(); if(!nm){out.push(r); return;}
+    var key=nm+"|"+(r.cur||"EUR"), k=keep[key];
+    if(!k){keep[key]=r; out.push(r); return;}
+    if(!Array.isArray(k.mb)) k.mb=[null,null,null,null,null,null,null,null,null,null,null,null];
+    if(!(n(k.balance)!==0)&&n(r.balance)!==0) k.balance=n(r.balance);
+    (r.mb||[]).forEach(function(v,i){if(i>0&&v!==null&&v!==undefined&&v!=="") k.mb[i]=n(v);});
+    if(!k.purpose&&r.purpose) k.purpose=r.purpose;
+    merged.push(k.name);
+  });
+  return {list:out,merged:merged};
+}
 function normalize(s){
   var b=blankState(); if(!s||typeof s!=="object") return b;
   var o=JSON.parse(JSON.stringify(s));
@@ -630,6 +645,7 @@ function normalize(s){
   o.variable.forEach(function(r){var a=Array.isArray(r.act)?r.act:[]; r.act=MONTHS.map(function(_,i){var v=a[i]; return (v===null||v===undefined||v===""||!isFinite(+v))?null:+v;});});
   if(!o.ratesOwn){var old=(s.settings&&isFinite(+s.settings.returnPct)&&+s.settings.returnPct>0)?+s.settings.returnPct:7;
     o.investments.forEach(function(r){if(!(n(r.rate)>0)) r.rate=old;}); o.ratesOwn=true;}
+  o.banks=mergeBanks(o.banks).list;
   o.example=!!o.example; o.updatedAt=+o.updatedAt||0; o.v=1;
   return o;
 }
@@ -1603,6 +1619,10 @@ function openEdit(id){
 }
 function commitEdit(){
   var id=editing; if(!id) return; editing=null;
+  if(state.banks.some(function(b){return b.id===id;})){
+    var mg=mergeBanks(state.banks);
+    if(mg.merged.length){state.banks=mg.list; changed(); setStatus("ok","Added to "+mg.merged[0]); var keepId=state.banks.find(function(b){return String(b.name).trim().toLowerCase()===String(mg.merged[0]).trim().toLowerCase();}); if(keepId) id=keepId.id;}
+  }
   if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
   renderPanel();
   var tr=document.querySelector('[data-edit="'+id+'"]');
